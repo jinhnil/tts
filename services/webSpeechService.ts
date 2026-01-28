@@ -10,6 +10,7 @@ export const speakWebSpeech = (
   onEnd: () => void,
   onError: (e: any) => void,
   shouldCancel: boolean = true,
+  onProgress?: (percentage: number) => void,
 ): SpeechSynthesisUtterance => {
   // Cancel any ongoing speech only if requested
   if (shouldCancel) {
@@ -45,6 +46,14 @@ export const speakWebSpeech = (
     console.error("Web Speech API Error:", e);
     onError(e);
   };
+
+  if (onProgress) {
+    utterance.onboundary = (event) => {
+      // charIndex is the index of the character being spoken
+      const percentage = Math.floor((event.charIndex / text.length) * 100);
+      onProgress(percentage);
+    };
+  }
 
   window.speechSynthesis.speak(utterance);
   return utterance;

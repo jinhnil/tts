@@ -58,6 +58,7 @@ export const Reader: React.FC<ReaderProps> = ({
   const [showSettings, setShowSettings] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [jumpTarget, setJumpTarget] = useState<string>("");
+  const [chunkProgress, setChunkProgress] = useState<number>(0);
 
   // Web Speech Voices
   const [webSpeechVoices, setWebSpeechVoices] = useState<
@@ -249,6 +250,7 @@ export const Reader: React.FC<ReaderProps> = ({
       }
       setErrorMsg(null);
       setReaderState(ReaderState.PLAYING);
+      setChunkProgress(0);
 
       webSpeechUtterance.current = speakWebSpeech(
         chunks[index].text,
@@ -257,6 +259,7 @@ export const Reader: React.FC<ReaderProps> = ({
         settings.volume,
         () => {
           // On End
+          setChunkProgress(100);
           if (index < chunks.length - 1) {
             setCurrentChunkIndex((prev) => {
               const next = prev + 1;
@@ -275,6 +278,7 @@ export const Reader: React.FC<ReaderProps> = ({
           setReaderState(ReaderState.IDLE);
         },
         !autoPlay, // shouldCancel: true if manual (not autoPlay)
+        (percentage) => setChunkProgress(percentage), // onProgress
       );
     },
     [chunks, settings],
@@ -678,9 +682,17 @@ export const Reader: React.FC<ReaderProps> = ({
                           Đoạn {chunk.id + 1}
                         </span>
                         {isActive && (
-                          <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white animate-pulse">
-                            Đang đọc
-                          </span>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white animate-pulse">
+                              Đang đọc {chunkProgress}%
+                            </span>
+                            <div className="w-24 h-1 bg-gray-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-blue-400 transition-all duration-300 ease-out"
+                                style={{ width: `${chunkProgress}%` }}
+                              />
+                            </div>
+                          </div>
                         )}
                       </div>
                     );
