@@ -551,6 +551,7 @@ export const Reader: React.FC<ReaderProps> = ({
                   : visibleRange.start + index;
 
               const isActive = actualIndex === currentChunkIndex;
+              const isPaginated = settings.viewMode === "paginated";
               return (
                 <div
                   key={chunk.id}
@@ -560,16 +561,39 @@ export const Reader: React.FC<ReaderProps> = ({
                     setCurrentChunkIndex(chunk.id);
                     playChunk(chunk.id);
                   }}
-                  className={`p-5 rounded-xl transition-all duration-300 cursor-pointer text-lg md:text-xl leading-relaxed ${
-                    isActive
-                      ? "bg-blue-900/20 border-l-4 border-blue-500 text-gray-100 shadow-lg"
-                      : "text-gray-400 hover:text-gray-300 hover:bg-gray-900/50"
+                  className={`transition-all duration-300 cursor-pointer ${
+                    isPaginated
+                      ? `p-3 rounded-lg flex items-center justify-between border ${
+                          isActive
+                            ? "bg-blue-600 text-white border-blue-500 shadow-md"
+                            : "bg-gray-800/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600"
+                        }`
+                      : `p-5 rounded-xl text-lg md:text-xl leading-relaxed ${
+                          isActive
+                            ? "bg-blue-900/20 border-l-4 border-blue-500 text-gray-100 shadow-lg"
+                            : "text-gray-400 hover:text-gray-300 hover:bg-gray-900/50"
+                        }`
                   }`}
                 >
-                  <span className="text-xs text-gray-600 font-mono block mb-1">
-                    #{chunk.id + 1}
-                  </span>
-                  {chunk.text}
+                  {isPaginated ? (
+                    <div className="flex items-center gap-3 w-full">
+                      <span className="font-bold text-sm min-w-[3rem]">
+                        Đoạn {chunk.id + 1}
+                      </span>
+                      <span
+                        className={`text-xs truncate flex-1 ${isActive ? "text-blue-100/70" : "text-gray-500"}`}
+                      >
+                        {chunk.text.substring(0, 60)}...
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-xs text-gray-600 font-mono block mb-1">
+                        #{chunk.id + 1}
+                      </span>
+                      {chunk.text}
+                    </>
+                  )}
                 </div>
               );
             })}
