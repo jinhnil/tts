@@ -241,6 +241,15 @@ export const Reader: React.FC<ReaderProps> = ({
     }
   };
 
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
+
+  const clearProgressInterval = () => {
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+      progressInterval.current = null;
+    }
+  };
+
   const playChunk = useCallback(
     async (index: number, autoPlay: boolean = false) => {
       if (index < 0 || index >= chunks.length) return;
@@ -248,9 +257,26 @@ export const Reader: React.FC<ReaderProps> = ({
       if (!autoPlay) {
         stopWebSpeech();
       }
+      clearProgressInterval(); // Clear any existing interval
+
       setErrorMsg(null);
       setReaderState(ReaderState.PLAYING);
       setChunkProgress(0);
+
+      // Estimate duration for fallback simulation
+      // Avg 70ms per char at 1.0x speed
+      const textLength = chunks[index].text.length;
+      const estimatedDurationMs = (textLength * 70) / settings.playbackRate;
+      const updateInterval = 100;
+      const step = (updateInterval / estimatedDurationMs) * 100;
+
+      // Start simulation
+      progressInterval.current = setInterval(() => {
+        setChunkProgress((prev) => {
+          if (prev >= 95) return prev; // Don't complete purely on simulation
+          return Math.min(95, prev + step);
+        });
+      }, updateInterval);
 
       webSpeechUtterance.current = speakWebSpeech(
         chunks[index].text,
@@ -259,6 +285,7 @@ export const Reader: React.FC<ReaderProps> = ({
         settings.volume,
         () => {
           // On End
+          clearProgressInterval();
           setChunkProgress(100);
           if (index < chunks.length - 1) {
             setCurrentChunkIndex((prev) => {
@@ -272,13 +299,19 @@ export const Reader: React.FC<ReaderProps> = ({
         },
         (err) => {
           // On Error
+          clearProgressInterval();
           console.error("Reader Error:", err);
           const errorMsg = err.error || "Unknown Error";
           setErrorMsg(`Lỗi trình duyệt: ${errorMsg}`);
           setReaderState(ReaderState.IDLE);
         },
-        !autoPlay, // shouldCancel: true if manual (not autoPlay)
-        (percentage) => setChunkProgress(percentage), // onProgress
+        !autoPlay, // shouldCancel
+        (percentage) => {
+          // Real progress update
+          // Reset interval if we get real data? Or just overwrite?
+          // Overwrite is fine.
+          setChunkProgress(percentage);
+        },
       );
     },
     [chunks, settings],
@@ -316,7 +349,9 @@ export const Reader: React.FC<ReaderProps> = ({
 
   const handleStop = () => {
     stopWebSpeech();
+    clearProgressInterval();
     setReaderState(ReaderState.IDLE);
+    setChunkProgress(0); // Reset UI
   };
 
   const handleNavigate = (offset: number) => {
