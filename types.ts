@@ -12,19 +12,20 @@ export interface Chunk {
 }
 
 export enum ReaderState {
-  IDLE = 'IDLE',
-  LOADING = 'LOADING',
-  PLAYING = 'PLAYING',
-  PAUSED = 'PAUSED',
+  IDLE = "IDLE",
+  LOADING = "LOADING",
+  PLAYING = "PLAYING",
+  PAUSED = "PAUSED",
 }
 
-export type GeminiVoice = 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Zephyr';
+export type GeminiVoice = "Puck" | "Charon" | "Kore" | "Fenrir" | "Zephyr";
 
 export interface ReaderSettings {
   playbackRate: number; // 0.5 to 3.0 (Web Speech limits recommended)
   volume: number; // 0 to 100
   webSpeechVoiceURI: string; // ID for Web Speech voice
   sentencesPerChunk: number;
+  viewMode?: "continuous" | "paginated";
 }
 
 export interface StoredProgress {
