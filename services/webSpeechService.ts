@@ -43,14 +43,44 @@ export const speakWebSpeech = (
     return utterance;
   }
 
-  // If text is long, split it
-  const chunkLength = 1000;
-  const chunks = text.match(
-    new RegExp(`.{1,${chunkLength}}(?:\\s|$)|.{1,${chunkLength}}`, "g"),
-  ) || [text];
+  // If text is long, split it into smaller chunks
+  // 200 chars is a safe limit for most mobile TTS engines (Android/iOS) to avoid synthesis-failed
+  const MAX_CHUNK_LENGTH = 200;
 
-  // Create a representative utterance (returning the first one allows some control, though imperfect for multi-part)
-  // We need to chain them.
+  const chunks: string[] = [];
+  let remainingText = text;
+
+  while (remainingText.length > 0) {
+    if (remainingText.length <= MAX_CHUNK_LENGTH) {
+      chunks.push(remainingText);
+      break;
+    }
+
+    // Find the nearest punctuation to split safely
+    let splitIndex = -1;
+    const punctuationRegex = /[.!?,;:]/g;
+    let match;
+
+    // Look for punctuation within the safe range
+    while ((match = punctuationRegex.exec(remainingText)) !== null) {
+      if (match.index < MAX_CHUNK_LENGTH) {
+        splitIndex = match.index + 1; // Include the punctuation
+      } else {
+        break;
+      }
+    }
+
+    // If no punctuation found, split at near the max length (space)
+    if (splitIndex === -1) {
+      const spaceIndex = remainingText.lastIndexOf(" ", MAX_CHUNK_LENGTH);
+      splitIndex = spaceIndex > 0 ? spaceIndex + 1 : MAX_CHUNK_LENGTH;
+    }
+
+    chunks.push(remainingText.slice(0, splitIndex));
+    remainingText = remainingText.slice(splitIndex).trim();
+  }
+
+  // Chain speech execution
   let currentUtterance: SpeechSynthesisUtterance;
 
   const speakNextChunk = (index: number) => {
@@ -69,23 +99,18 @@ export const speakWebSpeech = (
     utterance.onend = () => speakNextChunk(index + 1);
     utterance.onerror = (e) => {
       if (e.error === "canceled" || e.error === "interrupted") return;
+      // On 'synthesis-failed', sometimes retrying or just skipping works,
+      // but for now we report it.
       console.error("Web Speech API Error (Chunk " + index + "):", e);
       onError(e);
     };
 
-    currentUtterance = utterance; // Update reference if needed externally?
-    // Note: external control ref will point to the *first* one returned below.
-    // This is a limitation but solves the crash.
+    currentUtterance = utterance;
     window.speechSynthesis.speak(utterance);
   };
 
-  // Start the chain
   speakNextChunk(0);
 
-  // Return a dummy or the first utterance.
-  // Returning a new dummy to satisfy type, but real control is tricky with chaining.
-  // Ideally we return the first utterance, but `stopWebSpeech` calls `cancel()` which clears the whole queue anywhere,
-  // so external stop() works fine.
   return new SpeechSynthesisUtterance(chunks[0]);
 };
 
