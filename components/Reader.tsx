@@ -197,10 +197,12 @@ export const Reader: React.FC<ReaderProps> = ({
   };
 
   const playChunk = useCallback(
-    async (index: number) => {
+    async (index: number, autoPlay: boolean = false) => {
       if (index < 0 || index >= chunks.length) return;
 
-      stopWebSpeech();
+      if (!autoPlay) {
+        stopWebSpeech();
+      }
       setErrorMsg(null);
       setReaderState(ReaderState.PLAYING);
 
@@ -214,7 +216,7 @@ export const Reader: React.FC<ReaderProps> = ({
           if (index < chunks.length - 1) {
             setCurrentChunkIndex((prev) => {
               const next = prev + 1;
-              playChunk(next);
+              playChunk(next, true);
               return next;
             });
           } else {
@@ -223,9 +225,12 @@ export const Reader: React.FC<ReaderProps> = ({
         },
         (err) => {
           // On Error
-          setErrorMsg("Lỗi trình duyệt đọc.");
+          console.error("Reader Error:", err);
+          const errorMsg = err.error || "Unknown Error";
+          setErrorMsg(`Lỗi trình duyệt: ${errorMsg}`);
           setReaderState(ReaderState.IDLE);
         },
+        !autoPlay, // shouldCancel: true if manual (not autoPlay)
       );
     },
     [chunks, settings],

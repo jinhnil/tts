@@ -8,16 +8,22 @@ export const speakWebSpeech = (
   rate: number,
   volume: number, // 0-100
   onEnd: () => void,
-  onError: (e: any) => void
+  onError: (e: any) => void,
+  shouldCancel: boolean = true,
 ): SpeechSynthesisUtterance => {
-  // Cancel any ongoing speech
-  window.speechSynthesis.cancel();
+  // Cancel any ongoing speech only if requested
+  if (shouldCancel) {
+    window.speechSynthesis.cancel();
+  }
 
   const utterance = new SpeechSynthesisUtterance(text);
-  
+
   const voices = window.speechSynthesis.getVoices();
-  const selectedVoice = voices.find(v => v.voiceURI === voiceURI) || voices.find(v => v.lang.startsWith('vi')) || voices[0];
-  
+  const selectedVoice =
+    voices.find((v) => v.voiceURI === voiceURI) ||
+    voices.find((v) => v.lang.startsWith("vi")) ||
+    voices[0];
+
   if (selectedVoice) {
     utterance.voice = selectedVoice;
   }
@@ -33,8 +39,8 @@ export const speakWebSpeech = (
 
   utterance.onerror = (e) => {
     // Ignore errors caused by manual cancellation (e.g. clicking Next/Prev/Stop)
-    if (e.error === 'canceled' || e.error === 'interrupted') {
-        return;
+    if (e.error === "canceled" || e.error === "interrupted") {
+      return;
     }
     console.error("Web Speech API Error:", e);
     onError(e);
