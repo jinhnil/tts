@@ -80,25 +80,26 @@ export const Reader: React.FC<ReaderProps> = ({
   const webSpeechUtterance = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Temp settings for the form
-  const [tempSettings, setTempSettings] = useState<ReaderSettings>(initialSettings); 
+  const [tempSettings, setTempSettings] =
+    useState<ReaderSettings>(initialSettings);
 
   const handleOpenSettings = () => {
-      setTempSettings(settings);
-      setShowSettings(true);
+    setTempSettings(settings);
+    setShowSettings(true);
   };
 
   const handleSaveSettings = () => {
-      // If chunk size changed, we need to recalculate current index
-      if (tempSettings.sentencesPerChunk !== settings.sentencesPerChunk) {
-          const oldSize = settings.sentencesPerChunk;
-          const newSize = tempSettings.sentencesPerChunk;
-          const currentSentenceIndex = currentChunkIndex * oldSize;
-          const newIndex = Math.floor(currentSentenceIndex / newSize);
-          setCurrentChunkIndex(newIndex);
-      }
-      
-      setSettings(tempSettings);
-      setShowSettings(false);
+    // If chunk size changed, we need to recalculate current index
+    if (tempSettings.sentencesPerChunk !== settings.sentencesPerChunk) {
+      const oldSize = settings.sentencesPerChunk;
+      const newSize = tempSettings.sentencesPerChunk;
+      const currentSentenceIndex = currentChunkIndex * oldSize;
+      const newIndex = Math.floor(currentSentenceIndex / newSize);
+      setCurrentChunkIndex(newIndex);
+    }
+
+    setSettings(tempSettings);
+    setShowSettings(false);
   };
 
   // Pagination State
@@ -417,7 +418,7 @@ export const Reader: React.FC<ReaderProps> = ({
                   <FileText size={16} />
                   <span>Cuộn</span>
                 </button>
-                <button
+
                 <button
                   onClick={() =>
                     setTempSettings((s) => ({ ...s, viewMode: "paginated" }))
@@ -540,56 +541,75 @@ export const Reader: React.FC<ReaderProps> = ({
               <label className="text-xs font-bold text-gray-400 uppercase block mb-2">
                 Số câu mỗi đoạn
               </label>
-                <div className="flex items-center gap-3">
-                 <button
-                   onClick={() => setTempSettings(s => ({...s, sentencesPerChunk: Math.max(1, Math.min(200, s.sentencesPerChunk - 1))}))}
-                   className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
-                 >
-                   <Minus size={24} />
-                 </button>
-                 <input
-                   type="number"
-                   min="1"
-                   max="200"
-                   value={tempSettings.sentencesPerChunk}
-                   onChange={(e) => {
-                       const val = parseInt(e.target.value);
-                       if (!isNaN(val)) {
-                           setTempSettings(s => ({...s, sentencesPerChunk: val}));
-                       } else if (e.target.value === '') {
-                           // Allow empty temporary state for typing
-                           setTempSettings(s => ({...s, sentencesPerChunk: 0})); 
-                       }
-                   }}
-                   onBlur={(e) => {
-                       let val = parseInt(e.target.value);
-                       if (isNaN(val) || val < 1) val = 1;
-                       if (val > 200) val = 200;
-                       setTempSettings(s => ({...s, sentencesPerChunk: val}));
-                   }}
-                   className="flex-1 text-center font-mono text-xl bg-gray-900 border border-gray-700 rounded-lg h-12 text-white outline-none focus:border-blue-500 transition-colors"
-                 />
-                 <button
-                   onClick={() => setTempSettings(s => ({...s, sentencesPerChunk: Math.max(1, Math.min(200, s.sentencesPerChunk + 1))}))}
-                   className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
-                 >
-                   <Plus size={24} />
-                 </button>
-               </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() =>
+                    setTempSettings((s) => ({
+                      ...s,
+                      sentencesPerChunk: Math.max(
+                        1,
+                        Math.min(200, s.sentencesPerChunk - 1),
+                      ),
+                    }))
+                  }
+                  className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
+                >
+                  <Minus size={24} />
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max="200"
+                  value={tempSettings.sentencesPerChunk}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val)) {
+                      setTempSettings((s) => ({
+                        ...s,
+                        sentencesPerChunk: val,
+                      }));
+                    } else if (e.target.value === "") {
+                      // Allow empty temporary state for typing
+                      setTempSettings((s) => ({ ...s, sentencesPerChunk: 0 }));
+                    }
+                  }}
+                  onBlur={(e) => {
+                    let val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 1) val = 1;
+                    if (val > 200) val = 200;
+                    setTempSettings((s) => ({ ...s, sentencesPerChunk: val }));
+                  }}
+                  className="flex-1 text-center font-mono text-xl bg-gray-900 border border-gray-700 rounded-lg h-12 text-white outline-none focus:border-blue-500 transition-colors"
+                />
+                <button
+                  onClick={() =>
+                    setTempSettings((s) => ({
+                      ...s,
+                      sentencesPerChunk: Math.max(
+                        1,
+                        Math.min(200, s.sentencesPerChunk + 1),
+                      ),
+                    }))
+                  }
+                  className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
+                >
+                  <Plus size={24} />
+                </button>
+              </div>
             </div>
 
             <button
-                onClick={handleSaveSettings}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mb-2"
+              onClick={handleSaveSettings}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mb-2"
             >
-                <Save size={20} />
-                <span>Lưu cài đặt</span>
+              <Save size={20} />
+              <span>Lưu cài đặt</span>
             </button>
             <button
-                onClick={() => setShowSettings(false)}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-3 rounded-xl active:scale-95 transition-all"
+              onClick={() => setShowSettings(false)}
+              className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-3 rounded-xl active:scale-95 transition-all"
             >
-                Hủy
+              Hủy
             </button>
           </div>
         </>
