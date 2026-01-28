@@ -31,6 +31,9 @@ import {
   Minus,
   FileText,
   List,
+  ArrowRight,
+  Save,
+  X,
 } from "lucide-react";
 
 interface ReaderProps {
@@ -75,6 +78,46 @@ export const Reader: React.FC<ReaderProps> = ({
 
   // Refs for Web Speech
   const webSpeechUtterance = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Temp settings for the form
+  const [tempSettings, setTempSettings] = useState<ReaderSettings>(initialSettings); 
+
+  const handleOpenSettings = () => {
+      setTempSettings(settings);
+      setShowSettings(true);
+  };
+
+  const handleSaveSettings = () => {
+      // If chunk size changed, we need to recalculate current index
+      if (tempSettings.sentencesPerChunk !== settings.sentencesPerChunk) {
+          const oldSize = settings.sentencesPerChunk;
+          const newSize = tempSettings.sentencesPerChunk;
+          const currentSentenceIndex = currentChunkIndex * oldSize;
+          const newIndex = Math.floor(currentSentenceIndex / newSize);
+          setCurrentChunkIndex(newIndex);
+      }
+      
+      setSettings(tempSettings);
+      setShowSettings(false);
+  };
+
+  // Pagination State
+  const ITEMS_PER_PAGE = 50;
+  const [currentPage, setCurrentPage] = useState(
+    Math.floor(initialChunkIndex / ITEMS_PER_PAGE),
+  );
+
+  const totalPages = Math.ceil(chunks.length / ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(Math.floor(currentChunkIndex / ITEMS_PER_PAGE));
+  }, [currentChunkIndex, ITEMS_PER_PAGE]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   useEffect(() => {
     onSaveProgressRef.current = onSaveProgress;
@@ -315,7 +358,7 @@ export const Reader: React.FC<ReaderProps> = ({
   );
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-gray-950 text-gray-100 relative overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-gray-950 text-gray-100 relative overflow-hidden pt-[env(safe-area-inset-top)]">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800 z-50 shrink-0 shadow-md">
         <button
@@ -329,7 +372,7 @@ export const Reader: React.FC<ReaderProps> = ({
           {file.name}
         </h2>
         <button
-          onClick={() => setShowSettings(!showSettings)}
+          onClick={handleOpenSettings}
           className={`p-2 rounded-full transition-colors ${showSettings ? "bg-blue-600 text-white" : "hover:bg-gray-800 text-gray-400"}`}
         >
           <Settings size={20} />
@@ -363,10 +406,10 @@ export const Reader: React.FC<ReaderProps> = ({
               <div className="grid grid-cols-2 gap-2 bg-gray-700 p-1 rounded-lg">
                 <button
                   onClick={() =>
-                    setSettings((s) => ({ ...s, viewMode: "continuous" }))
+                    setTempSettings((s) => ({ ...s, viewMode: "continuous" }))
                   }
                   className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm transition-all ${
-                    settings.viewMode === "continuous"
+                    tempSettings.viewMode === "continuous"
                       ? "bg-gray-600 text-white shadow"
                       : "text-gray-400 hover:text-gray-200"
                   }`}
@@ -375,11 +418,12 @@ export const Reader: React.FC<ReaderProps> = ({
                   <span>Cuộn</span>
                 </button>
                 <button
+                <button
                   onClick={() =>
-                    setSettings((s) => ({ ...s, viewMode: "paginated" }))
+                    setTempSettings((s) => ({ ...s, viewMode: "paginated" }))
                   }
                   className={`flex items-center justify-center gap-2 py-2 rounded-md text-sm transition-all ${
-                    settings.viewMode === "paginated"
+                    tempSettings.viewMode === "paginated"
                       ? "bg-gray-600 text-white shadow"
                       : "text-gray-400 hover:text-gray-200"
                   }`}
@@ -412,9 +456,9 @@ export const Reader: React.FC<ReaderProps> = ({
               )}
 
               <select
-                value={settings.webSpeechVoiceURI}
+                value={tempSettings.webSpeechVoiceURI}
                 onChange={(e) =>
-                  setSettings((s) => ({
+                  setTempSettings((s) => ({
                     ...s,
                     webSpeechVoiceURI: e.target.value,
                   }))
@@ -448,7 +492,7 @@ export const Reader: React.FC<ReaderProps> = ({
                   Tốc độ
                 </label>
                 <span className="text-xs text-blue-400">
-                  {settings.playbackRate.toFixed(1)}x
+                  {tempSettings.playbackRate.toFixed(1)}x
                 </span>
               </div>
               <input
@@ -456,9 +500,9 @@ export const Reader: React.FC<ReaderProps> = ({
                 min="0.5"
                 max="3.0"
                 step="0.1"
-                value={settings.playbackRate}
+                value={tempSettings.playbackRate}
                 onChange={(e) =>
-                  setSettings((s) => ({
+                  setTempSettings((s) => ({
                     ...s,
                     playbackRate: parseFloat(e.target.value),
                   }))
@@ -473,7 +517,7 @@ export const Reader: React.FC<ReaderProps> = ({
                   Âm lượng
                 </label>
                 <span className="text-xs text-blue-400">
-                  {settings.volume}%
+                  {tempSettings.volume}%
                 </span>
               </div>
               <input
@@ -481,9 +525,9 @@ export const Reader: React.FC<ReaderProps> = ({
                 min="0"
                 max="100"
                 step="1"
-                value={settings.volume}
+                value={tempSettings.volume}
                 onChange={(e) =>
-                  setSettings((s) => ({
+                  setTempSettings((s) => ({
                     ...s,
                     volume: parseInt(e.target.value),
                   }))
@@ -496,24 +540,57 @@ export const Reader: React.FC<ReaderProps> = ({
               <label className="text-xs font-bold text-gray-400 uppercase block mb-2">
                 Số câu mỗi đoạn
               </label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => changeChunkSize(-1)}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
-                >
-                  <Minus size={24} />
-                </button>
-                <div className="flex-1 text-center font-mono text-xl bg-gray-900 border border-gray-700 rounded-lg h-12 flex items-center justify-center text-white">
-                  {settings.sentencesPerChunk}
-                </div>
-                <button
-                  onClick={() => changeChunkSize(1)}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
-                >
-                  <Plus size={24} />
-                </button>
-              </div>
+                <div className="flex items-center gap-3">
+                 <button
+                   onClick={() => setTempSettings(s => ({...s, sentencesPerChunk: Math.max(1, Math.min(200, s.sentencesPerChunk - 1))}))}
+                   className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
+                 >
+                   <Minus size={24} />
+                 </button>
+                 <input
+                   type="number"
+                   min="1"
+                   max="200"
+                   value={tempSettings.sentencesPerChunk}
+                   onChange={(e) => {
+                       const val = parseInt(e.target.value);
+                       if (!isNaN(val)) {
+                           setTempSettings(s => ({...s, sentencesPerChunk: val}));
+                       } else if (e.target.value === '') {
+                           // Allow empty temporary state for typing
+                           setTempSettings(s => ({...s, sentencesPerChunk: 0})); 
+                       }
+                   }}
+                   onBlur={(e) => {
+                       let val = parseInt(e.target.value);
+                       if (isNaN(val) || val < 1) val = 1;
+                       if (val > 200) val = 200;
+                       setTempSettings(s => ({...s, sentencesPerChunk: val}));
+                   }}
+                   className="flex-1 text-center font-mono text-xl bg-gray-900 border border-gray-700 rounded-lg h-12 text-white outline-none focus:border-blue-500 transition-colors"
+                 />
+                 <button
+                   onClick={() => setTempSettings(s => ({...s, sentencesPerChunk: Math.max(1, Math.min(200, s.sentencesPerChunk + 1))}))}
+                   className="w-12 h-12 flex items-center justify-center bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors active:scale-95"
+                 >
+                   <Plus size={24} />
+                 </button>
+               </div>
             </div>
+
+            <button
+                onClick={handleSaveSettings}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mb-2"
+            >
+                <Save size={20} />
+                <span>Lưu cài đặt</span>
+            </button>
+            <button
+                onClick={() => setShowSettings(false)}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-3 rounded-xl active:scale-95 transition-all"
+            >
+                Hủy
+            </button>
           </div>
         </>
       )}
@@ -525,29 +602,37 @@ export const Reader: React.FC<ReaderProps> = ({
         className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 scroll-smooth relative pb-60"
       >
         {settings.viewMode === "paginated" && chunks.length > 0 && (
-          <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur pb-2 border-b border-gray-800 mb-4 flex justify-between items-center text-xs text-gray-500 font-mono">
-            <span>
-              Trang {Math.floor(currentChunkIndex / 50) + 1} /{" "}
-              {Math.ceil(chunks.length / 50)}
+          <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur pb-3 pt-1 border-b border-gray-800 mb-4 flex justify-between items-center text-sm font-mono shadow-sm">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 0}
+              className="p-2 hover:bg-gray-800 rounded-lg disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <span className="text-gray-300 font-bold">
+              Trang {currentPage + 1} / {totalPages}
             </span>
-            <span>{chunks.length} đoạn</span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages - 1}
+              className="p-2 hover:bg-gray-800 rounded-lg disabled:opacity-30 text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowRight size={18} />
+            </button>
           </div>
         )}
 
         {chunks.length > 0 ? (
           <>
-            {settings.viewMode === "continuous" && visibleRange.start > 0 && (
-              <div className="text-center py-2 text-gray-600 text-xs animate-pulse">
-                ... tải thêm ...
-              </div>
-            )}
+            {/* ... Continuous loading indicator ... */}
 
             {settings.viewMode === "paginated" ? (
               <div className="flex flex-col gap-2">
                 {chunks
                   .slice(
-                    Math.floor(currentChunkIndex / 50) * 50,
-                    (Math.floor(currentChunkIndex / 50) + 1) * 50,
+                    currentPage * ITEMS_PER_PAGE,
+                    (currentPage + 1) * ITEMS_PER_PAGE,
                   )
                   .map((chunk) => {
                     const isActive = chunk.id === currentChunkIndex;
