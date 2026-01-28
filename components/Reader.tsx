@@ -517,7 +517,7 @@ export const Reader: React.FC<ReaderProps> = ({
       <main
         ref={containerRef}
         onScroll={settings.viewMode === "continuous" ? handleScroll : undefined}
-        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 scroll-smooth relative pb-40"
+        className="flex-1 overflow-y-auto p-4 md:p-8 space-y-4 scroll-smooth relative pb-60"
       >
         {settings.viewMode === "paginated" && chunks.length > 0 && (
           <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur pb-2 border-b border-gray-800 mb-4 flex justify-between items-center text-xs text-gray-500 font-mono">
@@ -537,66 +537,71 @@ export const Reader: React.FC<ReaderProps> = ({
               </div>
             )}
 
-            {(settings.viewMode === "paginated"
-              ? chunks.slice(
-                  Math.floor(currentChunkIndex / 50) * 50,
-                  (Math.floor(currentChunkIndex / 50) + 1) * 50,
-                )
-              : visibleChunks
-            ).map((chunk, index) => {
-              // Calculate actual index based on mode
-              const actualIndex =
-                settings.viewMode === "paginated"
-                  ? Math.floor(currentChunkIndex / 50) * 50 + index
-                  : visibleRange.start + index;
-
-              const isActive = actualIndex === currentChunkIndex;
-              const isPaginated = settings.viewMode === "paginated";
-              return (
-                <div
-                  key={chunk.id}
-                  ref={isActive ? activeChunkRef : null}
-                  onClick={() => {
-                    handleStop();
-                    setCurrentChunkIndex(chunk.id);
-                    playChunk(chunk.id);
-                  }}
-                  className={`transition-all duration-300 cursor-pointer ${
-                    isPaginated
-                      ? `p-3 rounded-lg flex items-center justify-between border ${
-                          isActive
-                            ? "bg-blue-600 text-white border-blue-500 shadow-md"
-                            : "bg-gray-800/50 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600"
-                        }`
-                      : `p-5 rounded-xl text-lg md:text-xl leading-relaxed ${
-                          isActive
-                            ? "bg-blue-900/20 border-l-4 border-blue-500 text-gray-100 shadow-lg"
-                            : "text-gray-400 hover:text-gray-300 hover:bg-gray-900/50"
-                        }`
-                  }`}
-                >
-                  {isPaginated ? (
-                    <div className="flex items-center gap-3 w-full">
-                      <span className="font-bold text-sm min-w-[3rem]">
-                        Đoạn {chunk.id + 1}
-                      </span>
-                      <span
-                        className={`text-xs truncate flex-1 ${isActive ? "text-blue-100/70" : "text-gray-500"}`}
+            {settings.viewMode === "paginated" ? (
+              <div className="flex flex-col gap-2">
+                {chunks
+                  .slice(
+                    Math.floor(currentChunkIndex / 50) * 50,
+                    (Math.floor(currentChunkIndex / 50) + 1) * 50,
+                  )
+                  .map((chunk) => {
+                    const isActive = chunk.id === currentChunkIndex;
+                    return (
+                      <div
+                        key={chunk.id}
+                        ref={isActive ? activeChunkRef : null}
+                        onClick={() => {
+                          handleStop();
+                          setCurrentChunkIndex(chunk.id);
+                          playChunk(chunk.id);
+                        }}
+                        className={`
+                                    p-4 rounded-xl border transition-all duration-200 cursor-pointer flex items-center justify-between
+                                    ${
+                                      isActive
+                                        ? "bg-blue-600 text-white border-blue-500 shadow-md transform scale-[1.01]"
+                                        : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500"
+                                    }
+                                `}
                       >
-                        {chunk.text.substring(0, 60)}...
-                      </span>
-                    </div>
-                  ) : (
-                    <>
-                      <span className="text-xs text-gray-600 font-mono block mb-1">
-                        #{chunk.id + 1}
-                      </span>
-                      {chunk.text}
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                        <span className="font-medium text-base">
+                          Đoạn {chunk.id + 1}
+                        </span>
+                        {isActive && (
+                          <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white animate-pulse">
+                            Đang đọc
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : (
+              visibleChunks.map((chunk, index) => {
+                const isActive = chunk.id === currentChunkIndex;
+                return (
+                  <div
+                    key={chunk.id}
+                    ref={isActive ? activeChunkRef : null}
+                    onClick={() => {
+                      handleStop();
+                      setCurrentChunkIndex(chunk.id);
+                      playChunk(chunk.id);
+                    }}
+                    className={`p-5 rounded-xl text-lg md:text-xl leading-relaxed transition-all duration-300 cursor-pointer ${
+                      isActive
+                        ? "bg-blue-900/20 border-l-4 border-blue-500 text-gray-100 shadow-lg"
+                        : "text-gray-400 hover:text-gray-300 hover:bg-gray-900/50"
+                    }`}
+                  >
+                    <span className="text-xs text-gray-600 font-mono block mb-1">
+                      #{chunk.id + 1}
+                    </span>
+                    {chunk.text}
+                  </div>
+                );
+              })
+            )}
 
             {settings.viewMode === "continuous" &&
               visibleRange.end < chunks.length && (
@@ -669,7 +674,7 @@ export const Reader: React.FC<ReaderProps> = ({
           </button>
         </div>
 
-        <div className="flex justify-center items-center gap-4 text-xs text-gray-500 font-mono">
+        <div className="flex flex-wrap justify-center items-center gap-4 text-xs text-gray-500 font-mono pb-safe">
           <div className="flex items-center gap-1">
             <Gauge size={14} />
             <span>{settings.playbackRate}x</span>
@@ -679,24 +684,25 @@ export const Reader: React.FC<ReaderProps> = ({
             <Volume2 size={14} />
             <span>{settings.volume}%</span>
           </div>
-          <div className="h-4 w-px bg-gray-800"></div>
-          <div className="flex items-center gap-2 bg-gray-800 rounded px-2 py-1 border border-gray-700">
-            <input
-              type="number"
-              className="w-8 bg-transparent text-center text-white outline-none"
-              placeholder={(currentChunkIndex + 1).toString()}
-              value={jumpTarget}
-              onChange={(e) => setJumpTarget(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleJump()}
-            />
-            <span>/ {chunks.length}</span>
-            <button
-              onClick={handleJump}
-              disabled={!jumpTarget}
-              className="text-blue-400 hover:text-white"
-            >
-              <CornerDownRight size={14} />
-            </button>
+          <div className="w-full sm:w-auto flex justify-center mt-2 sm:mt-0">
+            <div className="flex items-center gap-3 bg-gray-800 rounded-xl px-4 py-2 border border-gray-700 shadow-inner">
+              <input
+                type="number"
+                className="w-16 bg-transparent text-center text-white outline-none text-lg font-bold placeholder:text-gray-600"
+                placeholder={(currentChunkIndex + 1).toString()}
+                value={jumpTarget}
+                onChange={(e) => setJumpTarget(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleJump()}
+              />
+              <span className="text-sm font-medium">/ {chunks.length}</span>
+              <button
+                onClick={handleJump}
+                disabled={!jumpTarget}
+                className="p-1 bg-blue-600 text-white rounded-lg disabled:opacity-50 hover:bg-blue-500 transition-colors"
+              >
+                <CornerDownRight size={18} />
+              </button>
+            </div>
           </div>
         </div>
       </footer>
