@@ -1,0 +1,5 @@
+{
+  "name": "TTS Reader",
+  "description": "A dark-themed, folder-based text reader application utilizing Gemini 2.5 Flash TTS for high-quality voice synthesis. Features chunk-based reading, speed control, and session persistence.",
+  "requestFramePermissions": []
+}
