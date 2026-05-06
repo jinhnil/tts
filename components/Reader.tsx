@@ -188,27 +188,31 @@ export const Reader: React.FC<ReaderProps> = ({
     setVisibleRange({ start, end });
   }, [currentChunkIndex, chunks.length]);
 
+  // Helper to scroll active chunk into center
+  const scrollActiveToCenter = useCallback(() => {
+    // Use setTimeout to ensure DOM updates and layout are completely finished
+    setTimeout(() => {
+      if (activeChunkRef.current) {
+        activeChunkRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        shouldAutoScrollRef.current = false;
+      }
+    }, 150);
+  }, []);
+
   // Scroll active into view
   useEffect(() => {
     shouldAutoScrollRef.current = true;
-    if (activeChunkRef.current) {
-      activeChunkRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      shouldAutoScrollRef.current = false;
-    }
-  }, [currentChunkIndex]);
+    scrollActiveToCenter();
+  }, [currentChunkIndex, scrollActiveToCenter]);
 
   useEffect(() => {
-    if (shouldAutoScrollRef.current && activeChunkRef.current) {
-      activeChunkRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-      shouldAutoScrollRef.current = false;
+    if (shouldAutoScrollRef.current) {
+      scrollActiveToCenter();
     }
-  }, [visibleRange]);
+  }, [visibleRange, scrollActiveToCenter]);
 
   // Scroll restoration
   useLayoutEffect(() => {
@@ -304,9 +308,13 @@ export const Reader: React.FC<ReaderProps> = ({
           const errorMsg = err.error || "Unknown Error";
           setErrorMsg(`Lỗi trình duyệt: ${errorMsg}. Đang tự động thử lại...`);
           
+          // Must cancel previous stuck speech to allow retry to work
+          stopWebSpeech();
+
           // Auto-retry the chunk
           setTimeout(() => {
-            playChunk(index, true);
+            // Pass false to ensure we cancel any stuck state in the engine
+            playChunk(index, false);
           }, 1500);
         },
         !autoPlay, // shouldCancel
@@ -331,7 +339,12 @@ export const Reader: React.FC<ReaderProps> = ({
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
         console.warn("Watchdog detected stopped speech. Restarting chunk...");
         setErrorMsg(`Phát hiện âm thanh bị dừng. Đang tự động thử lại đoạn ${currentChunkIndex + 1}...`);
-        playChunk(currentChunkIndex, true);
+        
+        // Reset engine before retry
+        stopWebSpeech();
+        
+        // Pass false to autoPlay to force cancel stuck states
+        playChunk(currentChunkIndex, false);
       }
     }, 3000); // check every 3s
     
