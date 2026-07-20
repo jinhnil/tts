@@ -19,6 +19,13 @@ import {
   findVoiceById,
 } from "../services/webSpeechService";
 import {
+  CLOUD_VOICES,
+  speakCloudTTS,
+  stopCloudTTS,
+  pauseCloudTTS,
+  resumeCloudTTS,
+} from "../services/cloudTtsService";
+import {
   ArrowLeft,
   Play,
   Pause,
@@ -158,19 +165,13 @@ export const Reader: React.FC<ReaderProps> = ({
 
     setWebSpeechVoices(allVoices);
 
-    // Auto-select first Vietnamese voice if no valid voice is set
+    // Auto-select logic: default to edge_hoaimy if empty or invalid
     setSettings((prev) => {
-      const currentVoice = findVoiceById(allVoices, prev.webSpeechVoiceURI);
+      const isCloudVoice = CLOUD_VOICES.some((cv) => cv.id === prev.webSpeechVoiceURI);
+      const isWebVoice = findVoiceById(allVoices, prev.webSpeechVoiceURI);
 
-      if (!prev.webSpeechVoiceURI || !currentVoice) {
-        const viVoiceIndex = allVoices.findIndex((v) => isVietnameseVoice(v));
-        if (viVoiceIndex !== -1) {
-          const viId = getVoiceId(allVoices[viVoiceIndex], viVoiceIndex);
-          return { ...prev, webSpeechVoiceURI: viId };
-        } else if (allVoices.length > 0) {
-          const firstId = getVoiceId(allVoices[0], 0);
-          return { ...prev, webSpeechVoiceURI: firstId };
-        }
+      if (!prev.webSpeechVoiceURI || (!isCloudVoice && !isWebVoice)) {
+        return { ...prev, webSpeechVoiceURI: "edge_hoaimy" };
       }
       return prev;
     });
@@ -277,6 +278,7 @@ export const Reader: React.FC<ReaderProps> = ({
       if (index < 0 || index >= chunks.length) return;
 
       if (!autoPlay) {
+        stopCloudTTS();
         stopWebSpeech();
       }
       clearProgressInterval(); // Clear any existing interval
@@ -286,7 +288,6 @@ export const Reader: React.FC<ReaderProps> = ({
       setChunkProgress(0);
 
       // Estimate duration for fallback simulation
-      // Avg 70ms per char at 1.0x speed
       const textLength = chunks[index].text.length;
       const estimatedDurationMs = (textLength * 70) / settings.playbackRate;
       const updateInterval = 100;
@@ -300,74 +301,92 @@ export const Reader: React.FC<ReaderProps> = ({
         });
       }, updateInterval);
 
-      webSpeechUtterance.current = speakWebSpeech(
-        chunks[index].text,
-        settings.webSpeechVoiceURI,
-        settings.playbackRate,
-        settings.volume,
-        () => {
-          // On End
-          clearProgressInterval();
-          setChunkProgress(100);
-          if (index < chunks.length - 1) {
-            setCurrentChunkIndex((prev) => {
-              const next = prev + 1;
-              playChunk(next, true);
-              return next;
-            });
-          } else {
-            setReaderState(ReaderState.IDLE);
-          }
-        },
-        (err) => {
-          // On Error
-          clearProgressInterval();
-          console.error("Reader Error:", err);
-          const errorMsg = err.error || "Unknown Error";
-          setErrorMsg(`Lỗi trình duyệt: ${errorMsg}. Đang tự động thử lại...`);
-          
-          // Must cancel previous stuck speech to allow retry to work
-          stopWebSpeech();
+      const onEndHandler = () => {
+        clearProgressInterval();
+        setChunkProgress(100);
+        if (index < chunks.length - 1) {
+          setCurrentChunkIndex((prev) => {
+            const next = prev + 1;
+            playChunk(next, true);
+            return next;
+          });
+        } else {
+          setReaderState(ReaderState.IDLE);
+        }
+      };
 
-          // Auto-retry the chunk
-          setTimeout(() => {
-            // Pass false to ensure we cancel any stuck state in the engine
-            playChunk(index, false);
-          }, 1500);
-        },
-        !autoPlay, // shouldCancel
-        (percentage) => {
-          // Real progress update
-          // Reset interval if we get real data? Or just overwrite?
-          // Overwrite is fine.
-          setChunkProgress(percentage);
-        },
-        settings.pitch ?? 1.0
+      const onErrorHandler = (err: any) => {
+        clearProgressInterval();
+        console.error("Reader Error:", err);
+        const errorMsgStr = err?.message || err?.error || "Lỗi âm thanh";
+        setErrorMsg(`${errorMsgStr}. Đang tự động thử lại...`);
+
+        stopCloudTTS();
+        stopWebSpeech();
+
+        setTimeout(() => {
+          playChunk(index, false);
+        }, 1500);
+      };
+
+      const onProgressHandler = (percentage: number) => {
+        setChunkProgress(percentage);
+      };
+
+      const isCloudVoice = CLOUD_VOICES.some(
+        (cv) => cv.id === settings.webSpeechVoiceURI
       );
+
+      if (isCloudVoice) {
+        speakCloudTTS(
+          chunks[index].text,
+          settings.webSpeechVoiceURI,
+          settings.playbackRate,
+          settings.volume,
+          onEndHandler,
+          onErrorHandler,
+          onProgressHandler
+        );
+      } else {
+        webSpeechUtterance.current = speakWebSpeech(
+          chunks[index].text,
+          settings.webSpeechVoiceURI,
+          settings.playbackRate,
+          settings.volume,
+          onEndHandler,
+          onErrorHandler,
+          !autoPlay, // shouldCancel
+          onProgressHandler,
+          settings.pitch ?? 1.0
+        );
+      }
     },
     [chunks, settings],
   );
 
-  // Watchdog to auto-restart if speech silently stops
+  // Watchdog to auto-restart if speech silently stops (only for Web Speech)
   useEffect(() => {
     if (readerState !== ReaderState.PLAYING) return;
-    
+    const isCloudVoice = CLOUD_VOICES.some(
+      (cv) => cv.id === settings.webSpeechVoiceURI
+    );
+    if (isCloudVoice) return; // Cloud TTS manages its own audio
+
     const watchdogInterval = setInterval(() => {
-      // If we expect it to be playing but the browser speech synthesis isn't active
       if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
         console.warn("Watchdog detected stopped speech. Restarting chunk...");
-        setErrorMsg(`Phát hiện âm thanh bị dừng. Đang tự động thử lại đoạn ${currentChunkIndex + 1}...`);
-        
-        // Reset engine before retry
+        setErrorMsg(
+          `Phát hiện âm thanh bị dừng. Đang tự động thử lại đoạn ${
+            currentChunkIndex + 1
+          }...`
+        );
         stopWebSpeech();
-        
-        // Pass false to autoPlay to force cancel stuck states
         playChunk(currentChunkIndex, false);
       }
-    }, 3000); // check every 3s
-    
+    }, 3000);
+
     return () => clearInterval(watchdogInterval);
-  }, [readerState, currentChunkIndex, playChunk]);
+  }, [readerState, currentChunkIndex, playChunk, settings.webSpeechVoiceURI]);
 
   // Effect to apply settings immediately when changing volume/rate/pitch
   useEffect(() => {
@@ -377,7 +396,12 @@ export const Reader: React.FC<ReaderProps> = ({
     }
     // Save progress on setting change
     onSaveProgressRef.current(currentChunkIndex, settings);
-  }, [settings.playbackRate, settings.volume, settings.webSpeechVoiceURI, settings.pitch]);
+  }, [
+    settings.playbackRate,
+    settings.volume,
+    settings.webSpeechVoiceURI,
+    settings.pitch,
+  ]);
 
   // Save progress on chunk change
   useEffect(() => {
@@ -389,9 +413,11 @@ export const Reader: React.FC<ReaderProps> = ({
 
   const handlePlayPause = () => {
     if (readerState === ReaderState.PLAYING) {
+      pauseCloudTTS();
       pauseWebSpeech();
       setReaderState(ReaderState.PAUSED);
     } else if (readerState === ReaderState.PAUSED) {
+      resumeCloudTTS();
       resumeWebSpeech();
       setReaderState(ReaderState.PLAYING);
     } else {
@@ -400,6 +426,7 @@ export const Reader: React.FC<ReaderProps> = ({
   };
 
   const handleStop = () => {
+    stopCloudTTS();
     stopWebSpeech();
     clearProgressInterval();
     setReaderState(ReaderState.IDLE);
@@ -527,7 +554,7 @@ export const Reader: React.FC<ReaderProps> = ({
             <div className="mb-5">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">
-                  Giọng đọc (Web Speech)
+                  Giọng đọc (Speech Engine)
                 </label>
                 <button
                   onClick={loadVoices}
@@ -551,18 +578,27 @@ export const Reader: React.FC<ReaderProps> = ({
                     webSpeechVoiceURI: newURI,
                   }));
                 }}
-                className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-xs text-white"
+                className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-xs text-white font-medium"
               >
-                <optgroup label="Tiếng Việt">
-                  {webSpeechVoices
-                    .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
-                    .filter(({ voice }) => isVietnameseVoice(voice))
-                    .map(({ voice, id }) => (
-                      <option key={id} value={id}>
-                        {getCleanVoiceName(voice)}
-                      </option>
-                    ))}
+                <optgroup label="Giọng Đọc Online HD (Khuyên Dùng - Hoạt Động 100%)">
+                  {CLOUD_VOICES.map((cv) => (
+                    <option key={cv.id} value={cv.id}>
+                      🌟 {cv.name}
+                    </option>
+                  ))}
                 </optgroup>
+                {webSpeechVoices.filter((v) => isVietnameseVoice(v)).length > 0 && (
+                  <optgroup label="Giọng Đọc Trình Duyệt (Web Speech)">
+                    {webSpeechVoices
+                      .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
+                      .filter(({ voice }) => isVietnameseVoice(voice))
+                      .map(({ voice, id }) => (
+                        <option key={id} value={id}>
+                          {getCleanVoiceName(voice)}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
