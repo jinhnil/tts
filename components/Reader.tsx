@@ -131,7 +131,20 @@ export const Reader: React.FC<ReaderProps> = ({
 
   // Load Web Speech Voices
   const loadVoices = useCallback(() => {
-    const allVoices = getWebSpeechVoices();
+    const rawVoices = getWebSpeechVoices();
+
+    // Filter out broken Edge Online voices where name/voiceURI contains 'undefined'
+    const allVoices = rawVoices.filter((v) => {
+      const name = v.name || "";
+      const uri = v.voiceURI || "";
+      // Keep local voices always, filter broken online ones
+      if (v.localService) return true;
+      // Reject voices with 'undefined' in name or URI (Edge bug)
+      if (name.includes("undefined") || uri.includes("undefined")) return false;
+      // Reject voices with empty/missing name
+      if (!name || name.trim() === "") return false;
+      return true;
+    });
 
     // Sort: Prioritize Vietnamese voices to the top
     allVoices.sort((a, b) => {
@@ -525,18 +538,25 @@ export const Reader: React.FC<ReaderProps> = ({
                 </button>
               </div>
 
-              <div className="mb-3 p-3 bg-blue-950/40 border border-blue-800 rounded-lg text-xs text-blue-200 leading-relaxed space-y-1">
-                <p className="font-semibold text-blue-300">💡 Mẹo phát âm Tiếng Việt trên Windows (Edge/Chrome):</p>
-                <p>
-                  Các giọng Edge <i>Online (Natural)</i> bị chặn phát âm qua Web API.
-                  Để đọc tiếng Việt mượt mà 100%:
-                </p>
-                <ol className="list-decimal ml-4 space-y-0.5 text-gray-300">
-                  <li>Mở <b>Settings Windows (Win + I)</b> → <b>Time & Language</b> → <b>Speech</b>.</li>
-                  <li>Bấm <b>Add voices</b> → Tìm chọn <b>Vietnamese (Tiếng Việt)</b> → <b>Add</b>.</li>
-                  <li>Nhấn nút <b>Tải lại giọng</b> bên trên để sử dụng giọng Hoài My chuẩn.</li>
-                </ol>
-              </div>
+              {webSpeechVoices.filter((v) => isVietnameseVoice(v)).length === 0 && (
+                <div className="mb-3 p-3 bg-red-950/60 border border-red-700 rounded-lg text-xs text-red-200 leading-relaxed space-y-1">
+                  <p className="font-semibold text-red-300">⚠️ Không tìm thấy giọng Tiếng Việt!</p>
+                  <p>
+                    Trình duyệt Edge đang chặn giọng Online. Bạn cần cài giọng Việt <b>cục bộ (offline)</b> để đọc được tiếng Việt:
+                  </p>
+                  <ol className="list-decimal ml-4 space-y-0.5 text-gray-300">
+                    <li>Mở <b>Settings Windows (Win + I)</b> → <b>Time & Language</b> → <b>Speech</b>.</li>
+                    <li>Mục <b>Manage voices</b>, bấm <b>Add voices</b>.</li>
+                    <li>Tìm chọn <b>Vietnamese (Tiếng Việt)</b> → <b>Add</b> và đợi tải xong.</li>
+                    <li>Quay lại đây, nhấn nút <b>🔄 Tải lại giọng</b> bên trên.</li>
+                  </ol>
+                </div>
+              )}
+              {webSpeechVoices.filter((v) => isVietnameseVoice(v)).length > 0 && (
+                <div className="mb-3 p-3 bg-green-950/40 border border-green-800 rounded-lg text-xs text-green-200 leading-relaxed">
+                  <p className="font-semibold text-green-300">✅ Đã tìm thấy {webSpeechVoices.filter((v) => isVietnameseVoice(v)).length} giọng Tiếng Việt</p>
+                </div>
+              )}
 
               <select
                 value={tempSettings.webSpeechVoiceURI}

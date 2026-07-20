@@ -134,11 +134,20 @@ export const speakWebSpeech = (
   }
 
 
-  const voices = getWebSpeechVoices();
+  const rawVoices = getWebSpeechVoices();
+  // Filter out broken Edge Online voices
+  const voices = rawVoices.filter((v) => {
+    if (v.localService) return true;
+    const name = v.name || "";
+    const uri = v.voiceURI || "";
+    if (name.includes("undefined") || uri.includes("undefined")) return false;
+    if (!name || name.trim() === "") return false;
+    return true;
+  });
   const selectedVoice =
     findVoiceById(voices, voiceURI) ||
     voices.find((v) => isVietnameseVoice(v)) ||
-    voices[0];
+    voices[0] || null;
 
   const subTexts = splitIntoSubTexts(text, 250);
   const totalLength = text.length || 1;
