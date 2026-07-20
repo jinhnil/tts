@@ -85,7 +85,7 @@ class MultiEngineDesktopReader:
         self.card_bg = "#1e293b"
 
         # Top Header Bar
-        header = tk.Frame(self.root, bg=self.bg_dark, padding=12)
+        header = tk.Frame(self.root, bg=self.bg_dark, padx=12, pady=12)
         header.pack(fill=tk.X)
 
         title = tk.Label(
@@ -98,7 +98,7 @@ class MultiEngineDesktopReader:
         title.pack(side=tk.LEFT)
 
         # Settings Bar
-        settings_frame = tk.Frame(self.root, bg=self.card_bg, padding=8)
+        settings_frame = tk.Frame(self.root, bg=self.card_bg, padx=8, pady=8)
         settings_frame.pack(fill=tk.X)
 
         # Voice Selector Dropdown
@@ -158,7 +158,7 @@ class MultiEngineDesktopReader:
         font_spin.pack(side=tk.LEFT, padx=2)
 
         # Toolbar Frame
-        toolbar = tk.Frame(self.root, bg="#334155", padding=6)
+        toolbar = tk.Frame(self.root, bg="#334155", padx=6, pady=6)
         toolbar.pack(fill=tk.X)
 
         btn_open = tk.Button(
@@ -236,7 +236,7 @@ class MultiEngineDesktopReader:
         self.load_paragraphs_from_text()
 
         # Bottom Player Navigation Control Bar
-        player_bar = tk.Frame(self.root, bg=self.card_bg, padding=10)
+        player_bar = tk.Frame(self.root, bg=self.card_bg, padx=10, pady=10)
         player_bar.pack(fill=tk.X)
 
         self.btn_prev = tk.Button(
