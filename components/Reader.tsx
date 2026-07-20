@@ -13,6 +13,7 @@ import {
   pauseWebSpeech,
   resumeWebSpeech,
   getWebSpeechVoices,
+  isVietnameseVoice,
 } from "../services/webSpeechService";
 import {
   ArrowLeft,
@@ -129,10 +130,10 @@ export const Reader: React.FC<ReaderProps> = ({
   const loadVoices = useCallback(() => {
     const allVoices = getWebSpeechVoices();
 
-    // Sort: Prioritize Vietnamese voices ('vi', 'vi-VN') to the top
+    // Sort: Prioritize Vietnamese voices to the top
     allVoices.sort((a, b) => {
-      const aIsVi = a.lang.toLowerCase().includes("vi");
-      const bIsVi = b.lang.toLowerCase().includes("vi");
+      const aIsVi = isVietnameseVoice(a);
+      const bIsVi = isVietnameseVoice(b);
 
       if (aIsVi && !bIsVi) return -1;
       if (!aIsVi && bIsVi) return 1;
@@ -148,9 +149,7 @@ export const Reader: React.FC<ReaderProps> = ({
       );
 
       if (!prev.webSpeechVoiceURI || !voiceExists) {
-        const viVoice = allVoices.find((v) =>
-          v.lang.toLowerCase().includes("vi"),
-        );
+        const viVoice = allVoices.find((v) => isVietnameseVoice(v));
         if (viVoice) {
           return { ...prev, webSpeechVoiceURI: viVoice.voiceURI };
         } else if (allVoices.length > 0) {
@@ -181,66 +180,69 @@ export const Reader: React.FC<ReaderProps> = ({
     }
   }, [file.content, settings.sentencesPerChunk]);
 
-  // Viewport logic
+  // Viewport & chunk initialization logic
   useEffect(() => {
-    const start = Math.max(0, currentChunkIndex - 5);
-    const end = Math.min(chunks.length, currentChunkIndex + 6);
-    setVisibleRange({ start, end });
+    if (chunks.length === 0) return;
+    const initialEnd = Math.min(
+      chunks.length,
+      Math.max(50, currentChunkIndex + 20),
+    );
+    setVisibleRange({ start: 0, end: initialEnd });
+  }, [chunks.length]);
+
+  // Ensure visible range includes currentChunkIndex
+  useEffect(() => {
+    if (chunks.length === 0) return;
+    setVisibleRange((prev) => {
+      if (currentChunkIndex >= prev.end) {
+        return {
+          start: 0,
+          end: Math.min(chunks.length, currentChunkIndex + 20),
+        };
+      }
+      return prev;
+    });
   }, [currentChunkIndex, chunks.length]);
 
-  // Helper to scroll active chunk into center
+  // Helper to scroll active chunk into center if not fully visible
   const scrollActiveToCenter = useCallback(() => {
-    // Use setTimeout to ensure DOM updates and layout are completely finished
     setTimeout(() => {
-      if (activeChunkRef.current) {
-        activeChunkRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-        shouldAutoScrollRef.current = false;
+      const activeEl = activeChunkRef.current;
+      const containerEl = containerRef.current;
+      if (activeEl && containerEl) {
+        const elRect = activeEl.getBoundingClientRect();
+        const containerRect = containerEl.getBoundingClientRect();
+
+        // Check if element is already within the container's visible bounds
+        const isVisible =
+          elRect.top >= containerRect.top + 40 &&
+          elRect.bottom <= containerRect.bottom - 40;
+
+        if (!isVisible) {
+          activeEl.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
       }
-    }, 150);
+    }, 100);
   }, []);
 
-  // Scroll active into view
+  // Scroll active into view ONLY when currentChunkIndex changes
   useEffect(() => {
-    shouldAutoScrollRef.current = true;
     scrollActiveToCenter();
   }, [currentChunkIndex, scrollActiveToCenter]);
 
-  useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      scrollActiveToCenter();
-    }
-  }, [visibleRange, scrollActiveToCenter]);
-
-  // Scroll restoration
-  useLayoutEffect(() => {
-    if (isPrepending.current && containerRef.current) {
-      const diff =
-        containerRef.current.scrollHeight - previousScrollHeight.current;
-      if (diff > 0) containerRef.current.scrollTop += diff;
-      isPrepending.current = false;
-    }
-  }, [visibleRange.start]);
-
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollTop < 100 && visibleRange.start > 0) {
-      previousScrollHeight.current = scrollHeight;
-      isPrepending.current = true;
-      setVisibleRange((prev) => ({
-        ...prev,
-        start: Math.max(0, prev.start - 5),
-      }));
-    }
+    // Load more chunks when user scrolls near the bottom (within 300px)
     if (
-      scrollHeight - scrollTop - clientHeight < 100 &&
+      scrollHeight - scrollTop - clientHeight < 300 &&
       visibleRange.end < chunks.length
     ) {
       setVisibleRange((prev) => ({
-        ...prev,
-        end: Math.min(chunks.length, prev.end + 5),
+        start: 0,
+        end: Math.min(chunks.length, prev.end + 30),
       }));
     }
   };
@@ -427,9 +429,7 @@ export const Reader: React.FC<ReaderProps> = ({
   };
 
   const visibleChunks = chunks.slice(visibleRange.start, visibleRange.end);
-  const hasVietnameseVoice = webSpeechVoices.some((v) =>
-    v.lang.toLowerCase().includes("vi"),
-  );
+  const hasVietnameseVoice = webSpeechVoices.some((v) => isVietnameseVoice(v));
 
   return (
     <div className="flex flex-col h-[100dvh] bg-gray-950 text-gray-100 relative overflow-hidden pt-[env(safe-area-inset-top)]">
@@ -541,7 +541,7 @@ export const Reader: React.FC<ReaderProps> = ({
               >
                 <optgroup label="Tiếng Việt">
                   {webSpeechVoices
-                    .filter((v) => v.lang.toLowerCase().includes("vi"))
+                    .filter((v) => isVietnameseVoice(v))
                     .map((v) => (
                       <option key={v.voiceURI} value={v.voiceURI}>
                         {v.name}
@@ -550,7 +550,7 @@ export const Reader: React.FC<ReaderProps> = ({
                 </optgroup>
                 <optgroup label="Ngôn ngữ khác">
                   {webSpeechVoices
-                    .filter((v) => !v.lang.toLowerCase().includes("vi"))
+                    .filter((v) => !isVietnameseVoice(v))
                     .map((v) => (
                       <option key={v.voiceURI} value={v.voiceURI}>
                         {v.name} ({v.lang})
