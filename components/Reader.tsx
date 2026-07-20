@@ -146,19 +146,16 @@ export const Reader: React.FC<ReaderProps> = ({
 
     setWebSpeechVoices(allVoices);
 
-    // Auto-select logic
+    // Auto-select logic: default to Google Cloud HD TTS if voice is empty, invalid, or contains 'undefined'
     setSettings((prev) => {
-      const currentVoice = findVoiceById(allVoices, prev.webSpeechVoiceURI);
+      const isInvalidOrOldVoice =
+        !prev.webSpeechVoiceURI ||
+        prev.webSpeechVoiceURI.includes("undefined") ||
+        (!prev.webSpeechVoiceURI.startsWith("google_tts") &&
+          !findVoiceById(allVoices, prev.webSpeechVoiceURI));
 
-      if (!prev.webSpeechVoiceURI || !currentVoice) {
-        const viVoiceIndex = allVoices.findIndex((v) => isVietnameseVoice(v));
-        if (viVoiceIndex !== -1) {
-          const viId = getVoiceId(allVoices[viVoiceIndex], viVoiceIndex);
-          return { ...prev, webSpeechVoiceURI: viId };
-        } else if (allVoices.length > 0) {
-          const firstId = getVoiceId(allVoices[0], 0);
-          return { ...prev, webSpeechVoiceURI: firstId };
-        }
+      if (isInvalidOrOldVoice) {
+        return { ...prev, webSpeechVoiceURI: GOOGLE_TTS_VOICE_ID };
       }
       return prev;
     });

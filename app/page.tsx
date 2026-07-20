@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   playbackRate: 1.0,
   pitch: 1.0,
   volume: 100,
-  webSpeechVoiceURI: "",
+  webSpeechVoiceURI: "google_tts_vi_cloud",
   sentencesPerChunk: 50,
   viewMode: "continuous",
 };
