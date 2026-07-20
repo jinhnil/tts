@@ -48,6 +48,7 @@ class MultiEngineDesktopReader:
             os.getcwd(),
             self.base_dir,
             os.path.dirname(self.base_dir),
+            os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0]))),
             getattr(sys, '_MEIPASS', '')
         ]
 
@@ -66,7 +67,7 @@ class MultiEngineDesktopReader:
                 break
 
         if not self.piper_exe:
-            self.piper_exe = os.path.join(self.base_dir, "piper.exe")
+            self.piper_exe = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "piper", "piper.exe")
 
         # Detect Default ONNX Model
         self.model_path = None
