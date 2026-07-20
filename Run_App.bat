@@ -1,10 +1,9 @@
 @echo off
-title Piper TTS Reader - 1 Click Launcher
+title Piper AI Desktop Reader - Native App
 color 0A
 echo =======================================================
-echo   Piper AI Tiếng Việt - Khởi Chạy 1-Click
+echo   Piper AI Tiếng Việt - Ung Dung Desktop 100%% Native
 echo =======================================================
 echo.
-echo Đang mở ứng dụng đọc truyện...
-start "" "http://localhost:3000"
-npm run dev
+echo Dang mo cua so ung dung Desktop (KHONG DUNG TRINH DUYET)...
+npx electron .
