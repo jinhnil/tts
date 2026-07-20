@@ -1,4 +1,5 @@
 // Cloud TTS Service supporting Microsoft Edge Neural Voices (Hoài My & Nam Minh) + Google Vietnamese Audio
+import { speakWebSpeech } from "./webSpeechService";
 
 export interface CloudVoice {
   id: string;
@@ -251,6 +252,9 @@ export const speakCloudTTS = (
     const subText = subTexts[index];
 
     try {
+      let playedSuccessfully = false;
+
+      // Tier 1: Try Edge Neural WebSocket if requested
       if (voiceId === "edge_hoaimy" || voiceId === "edge_namminh") {
         const edgeVoiceName =
           voiceId === "edge_namminh"
@@ -264,28 +268,56 @@ export const speakCloudTTS = (
             rate,
             volume,
           );
-          if (isCancelled) return;
+          if (!isCancelled) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            activeAudio = audio;
+            audio.volume = Math.max(0, Math.min(1, volume / 100));
 
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audio = new Audio(audioUrl);
-          activeAudio = audio;
-          audio.volume = Math.max(0, Math.min(1, volume / 100));
-
-          await new Promise<void>((res, rej) => {
-            audio.onended = () => {
-              URL.revokeObjectURL(audioUrl);
-              res();
-            };
-            audio.onerror = rej;
-            audio.play().catch(rej);
-          });
+            await new Promise<void>((res, rej) => {
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                res();
+              };
+              audio.onerror = rej;
+              audio.play().catch(rej);
+            });
+            playedSuccessfully = true;
+          }
         } catch (wsErr) {
-          console.warn("Edge Neural WS failed, fallback to Google Audio:", wsErr);
-          await playGoogleAudioChunk(subText, rate, volume);
+          console.warn("Edge Neural WS failed, trying Google Audio fallback:", wsErr);
         }
-      } else {
-        // Google Audio
-        await playGoogleAudioChunk(subText, rate, volume);
+      }
+
+      // Tier 2: Try Google Audio if Tier 1 failed or if voiceId === 'google_vi'
+      if (!playedSuccessfully && !isCancelled) {
+        try {
+          await playGoogleAudioChunk(subText, rate, volume);
+          playedSuccessfully = true;
+        } catch (gErr) {
+          console.warn("Google Audio fallback failed:", gErr);
+        }
+      }
+
+      // Tier 3: If both Cloud methods failed, fallback to Browser WebSpeech
+      if (!playedSuccessfully && !isCancelled) {
+        console.warn("All Cloud TTS options failed, falling back to Browser WebSpeech");
+        speakWebSpeech(
+          subText,
+          "",
+          rate,
+          volume,
+          () => {
+            index++;
+            playNext();
+          },
+          (err) => {
+            if (!isCancelled) onError(err);
+          },
+          false,
+          onProgress
+        );
+        return;
       }
 
       if (isCancelled) return;
@@ -299,7 +331,7 @@ export const speakCloudTTS = (
       playNext();
     } catch (err) {
       if (!isCancelled) {
-        console.error("Cloud TTS Play Error:", err);
+        console.error("Cloud TTS Play Final Error:", err);
         onError(err);
       }
     }

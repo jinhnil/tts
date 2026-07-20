@@ -318,15 +318,10 @@ export const Reader: React.FC<ReaderProps> = ({
       const onErrorHandler = (err: any) => {
         clearProgressInterval();
         console.error("Reader Error:", err);
-        const errorMsgStr = err?.message || err?.error || "Lỗi âm thanh";
-        setErrorMsg(`${errorMsgStr}. Đang tự động thử lại...`);
-
+        setReaderState(ReaderState.IDLE);
+        setErrorMsg("Không thể phát âm thanh đoạn này. Vui lòng bấm nút Phát để thử lại.");
         stopCloudTTS();
         stopWebSpeech();
-
-        setTimeout(() => {
-          playChunk(index, false);
-        }, 1500);
       };
 
       const onProgressHandler = (percentage: number) => {
