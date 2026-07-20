@@ -117,10 +117,6 @@ const splitIntoSubTexts = (text: string, maxLen = 250): string[] => {
   return subTexts.length > 0 ? subTexts : [text];
 };
 
-export const GOOGLE_TTS_VOICE_ID = "google_tts_vi_cloud";
-
-let activeAudio: HTMLAudioElement | null = null;
-
 export const speakWebSpeech = (
   text: string,
   voiceURI: string,
@@ -132,60 +128,11 @@ export const speakWebSpeech = (
   onProgress?: (percentage: number) => void,
   pitch: number = 1.0,
 ): SpeechSynthesisUtterance => {
-  // Cancel any ongoing speech/audio only if requested
+  // Cancel any ongoing speech only if requested
   if (shouldCancel) {
-    stopWebSpeech();
+    window.speechSynthesis.cancel();
   }
 
-  // Handle Google Cloud TTS Online Fallback
-  if (voiceURI === GOOGLE_TTS_VOICE_ID) {
-    const subTexts = splitIntoSubTexts(text, 120);
-    const totalLength = text.length || 1;
-    const charOffsets: number[] = [0];
-    for (let i = 0; i < subTexts.length - 1; i++) {
-      charOffsets.push(charOffsets[i] + subTexts[i].length);
-    }
-
-    let subIndex = 0;
-
-    const playNextSub = () => {
-      if (subIndex >= subTexts.length) {
-        onEnd();
-        return;
-      }
-
-      const subText = subTexts[subIndex];
-      const encoded = encodeURIComponent(subText);
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=vi&client=tw-ob`;
-
-      const audio = new Audio(url);
-      activeAudio = audio;
-      audio.playbackRate = Math.max(0.5, Math.min(2.0, rate));
-      audio.volume = Math.max(0, Math.min(1, volume / 100));
-
-      audio.onended = () => {
-        subIndex++;
-        if (onProgress) {
-          const totalRead = charOffsets[Math.min(subIndex, subTexts.length - 1)] || totalLength;
-          onProgress(Math.min(100, Math.floor((totalRead / totalLength) * 100)));
-        }
-        playNextSub();
-      };
-
-      audio.onerror = (e) => {
-        console.error("Google Cloud TTS Audio Error:", e);
-        onError(e);
-      };
-
-      audio.play().catch((err) => {
-        console.error("Google Cloud TTS Play Error:", err);
-        onError(err);
-      });
-    };
-
-    playNextSub();
-    return new SpeechSynthesisUtterance();
-  }
 
   const voices = getWebSpeechVoices();
   const selectedVoice =
@@ -266,29 +213,18 @@ export const speakWebSpeech = (
 };
 
 export const stopWebSpeech = () => {
-  if (activeAudio) {
-    activeAudio.pause();
-    activeAudio.currentTime = 0;
-    activeAudio = null;
-  }
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
 };
 
 export const pauseWebSpeech = () => {
-  if (activeAudio && !activeAudio.paused) {
-    activeAudio.pause();
-  }
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.pause();
   }
 };
 
 export const resumeWebSpeech = () => {
-  if (activeAudio && activeAudio.paused) {
-    activeAudio.play().catch(() => {});
-  }
   if (typeof window !== "undefined" && window.speechSynthesis) {
     window.speechSynthesis.resume();
   }

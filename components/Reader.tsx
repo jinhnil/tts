@@ -17,7 +17,6 @@ import {
   getCleanVoiceName,
   getVoiceId,
   findVoiceById,
-  GOOGLE_TTS_VOICE_ID,
 } from "../services/webSpeechService";
 import {
   ArrowLeft,
@@ -146,16 +145,19 @@ export const Reader: React.FC<ReaderProps> = ({
 
     setWebSpeechVoices(allVoices);
 
-    // Auto-select logic: default to Google Cloud HD TTS if voice is empty, invalid, or contains 'undefined'
+    // Auto-select first Vietnamese voice if no valid voice is set
     setSettings((prev) => {
-      const isInvalidOrOldVoice =
-        !prev.webSpeechVoiceURI ||
-        prev.webSpeechVoiceURI.includes("undefined") ||
-        (!prev.webSpeechVoiceURI.startsWith("google_tts") &&
-          !findVoiceById(allVoices, prev.webSpeechVoiceURI));
+      const currentVoice = findVoiceById(allVoices, prev.webSpeechVoiceURI);
 
-      if (isInvalidOrOldVoice) {
-        return { ...prev, webSpeechVoiceURI: GOOGLE_TTS_VOICE_ID };
+      if (!prev.webSpeechVoiceURI || !currentVoice) {
+        const viVoiceIndex = allVoices.findIndex((v) => isVietnameseVoice(v));
+        if (viVoiceIndex !== -1) {
+          const viId = getVoiceId(allVoices[viVoiceIndex], viVoiceIndex);
+          return { ...prev, webSpeechVoiceURI: viId };
+        } else if (allVoices.length > 0) {
+          const firstId = getVoiceId(allVoices[0], 0);
+          return { ...prev, webSpeechVoiceURI: firstId };
+        }
       }
       return prev;
     });
@@ -551,12 +553,7 @@ export const Reader: React.FC<ReaderProps> = ({
                 }}
                 className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-xs text-white"
               >
-                <optgroup label="Giọng Đọc Trực Tuyến (Khuyên Dùng - Đọc Chuẩn)">
-                  <option value={GOOGLE_TTS_VOICE_ID}>
-                    🌟 Google Tiếng Việt (Cloud HD - Tự Nhiên, Chuẩn Nữ)
-                  </option>
-                </optgroup>
-                <optgroup label="Giọng Đọc Trình Duyệt (Web Speech)">
+                <optgroup label="Tiếng Việt">
                   {webSpeechVoices
                     .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
                     .filter(({ voice }) => isVietnameseVoice(voice))
