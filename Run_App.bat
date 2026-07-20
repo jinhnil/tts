@@ -1,10 +1,9 @@
 @echo off
-title Piper TTS Reader - Launcher
+title Piper AI Desktop Reader - 1 Click Launcher
 color 0A
-echo ===================================================
-echo   Piper TTS Tiếng Việt Offline - 1-Click Launcher
-echo ===================================================
+echo =======================================================
+echo   Piper AI Tiếng Việt - Ứng Dụng Đọc Offline Desktop
+echo =======================================================
 echo.
-echo Dang khoi chay ung dung Web Reader...
-start "" "http://localhost:3000"
-npm run dev
+echo Dang khoi chay ung dung Desktop (KHONG DUNG TRINH DUYET)...
+python piper_desktop_app.py

@@ -1,20 +1,20 @@
 @echo off
-title Build Standalone EXE - Piper TTS Reader
+title Build Standalone EXE - Piper AI Desktop Reader
 color 0B
 echo =======================================================
-echo   Tao File PiperTTSReader.exe Standalone Đoc Sách 
+echo   Đang Tạo File PiperDesktopReader.exe Standalone
 echo =======================================================
 echo.
-echo 1. Dang cai dat PyInstaller...
-pip install pyinstaller
+echo 1. Dang cai dat PyInstaller & Pygame...
+pip install pyinstaller pygame
 
 echo.
-echo 2. Dang dong goi piper_app.py thanh file EXE duy nhat...
-pyinstaller --noconsole --onefile piper_app.py --name "PiperTTSReader"
+echo 2. Dang dong goi piper_desktop_app.py thanh file EXE duy nhat...
+pyinstaller --noconsole --onefile piper_desktop_app.py --name "PiperDesktopReader"
 
 echo.
 echo =======================================================
-echo   HOAN THANH! File PiperTTSReader.exe da đuoc tao:
-echo   -> Thư muc: dist\PiperTTSReader.exe
+echo   HOAN THANH! File PiperDesktopReader.exe da đuoc tao:
+echo   -> Thư muc: dist\PiperDesktopReader.exe
 echo =======================================================
 pause
