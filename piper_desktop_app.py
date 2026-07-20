@@ -25,11 +25,19 @@ try:
 except ImportError:
     pass
 
+# Try loading sherpa_kokoro_tts helper
+HAS_SHERPA = False
+try:
+    import sherpa_kokoro_tts
+    HAS_SHERPA = True
+except ImportError:
+    pass
+
 class MultiEngineDesktopReader:
     def __init__(self, root):
         self.root = root
-        self.root.title("Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine Desktop")
-        self.root.geometry("920x700")
+        self.root.title("Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine Desktop (Sherpa-ONNX, Kokoro & Piper)")
+        self.root.geometry("950x700")
         self.root.minsize(750, 550)
 
         # Base path detection
@@ -82,8 +90,8 @@ class MultiEngineDesktopReader:
 
         title = tk.Label(
             header,
-            text="🎧 Đọc Truyện Tiếng Việt Multi-Engine (Microsoft Neural & Piper AI Models)",
-            font=("Segoe UI", 13, "bold"),
+            text="🎧 Đọc Truyện Multi-Engine (Sherpa-ONNX, Kokoro-82M, Edge Neural & Piper)",
+            font=("Segoe UI", 12, "bold"),
             bg=self.bg_dark,
             fg=self.accent_blue
         )
@@ -99,6 +107,8 @@ class MultiEngineDesktopReader:
         self.voice_map = {
             "🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện)": "edge_hoaimy",
             "🌟 Microsoft Nam Minh (Neural Nam - Trầm Ấm)": "edge_namminh",
+            "🚀 Sherpa-ONNX Tiếng Việt Engine (K2-FSA Kaldi)": "sherpa_onnx",
+            "🔥 Kokoro-82M AI Tiếng Việt (anphunl/Kokoro)": "kokoro_vi",
         }
 
         # Add all detected ONNX models to voice options
