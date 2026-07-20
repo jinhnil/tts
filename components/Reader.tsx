@@ -574,6 +574,22 @@ export const Reader: React.FC<ReaderProps> = ({
                     ))}
                 </optgroup>
               </select>
+
+              {/* Debug: show raw voice info */}
+              <details className="mt-2">
+                <summary className="text-xs text-yellow-400 cursor-pointer hover:text-yellow-300">
+                  🔍 Debug: Xem chi tiết giọng đọc ({webSpeechVoices.length} giọng)
+                </summary>
+                <div className="mt-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded p-2 text-[10px] font-mono text-gray-300 space-y-1">
+                  {webSpeechVoices.map((v, idx) => (
+                    <div key={idx} className={`p-1 rounded ${isVietnameseVoice(v) ? 'bg-green-900/40 border border-green-800' : 'bg-gray-800/50'}`}>
+                      <div><span className="text-gray-500">#{idx}</span> <span className="text-white font-bold">{v.name || '(empty)'}</span></div>
+                      <div>lang: <span className="text-cyan-400">{v.lang || '(empty)'}</span> | URI: <span className="text-orange-400">{v.voiceURI || '(empty)'}</span></div>
+                      <div>local: {v.localService ? '✅' : '❌'} | default: {v.default ? '✅' : '❌'} | isVi: {isVietnameseVoice(v) ? '✅' : '❌'}</div>
+                    </div>
+                  ))}
+                </div>
+              </details>
             </div>
 
             <div className="mb-5">
