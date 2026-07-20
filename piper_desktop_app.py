@@ -125,7 +125,7 @@ class MultiEngineDesktopReader:
         self.play_thread_id = 0
 
         self.setup_ui()
-        self.update_story_combo(auto_load_first=True)
+        self.show_library_view()
 
     def scan_onnx_models(self):
         search_dirs = [
@@ -170,11 +170,11 @@ class MultiEngineDesktopReader:
         style.map("TCombobox", fieldbackground=[("readonly", "#1e293b")], foreground=[("readonly", "#f8fafc")])
 
         # Status Footer (Pack to BOTTOM first)
-        footer = tk.Frame(self.root, bg="#050811", height=26)
-        footer.pack(side=tk.BOTTOM, fill=tk.X)
+        self.footer_frame = tk.Frame(self.root, bg="#050811", height=26)
+        self.footer_frame.pack(side=tk.BOTTOM, fill=tk.X)
 
         self.status_label = tk.Label(
-            footer,
+            self.footer_frame,
             textvariable=self.status_var,
             font=("Segoe UI", 9, "bold"),
             bg="#050811",
@@ -182,11 +182,24 @@ class MultiEngineDesktopReader:
         )
         self.status_label.pack(side=tk.LEFT, padx=12)
 
-        # Bottom Player Navigation Control Bar (Pack to BOTTOM second)
-        player_bar = tk.Frame(self.root, bg=self.card_bg, padx=8, pady=8, highlightthickness=1, highlightbackground="#1e293b")
-        player_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(2, 6))
+        # Progress Bar Frame (Pack to BOTTOM third)
+        self.prog_frame = tk.Frame(self.root, bg=self.card_bg, padx=12, pady=4)
+        self.prog_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=2)
 
-        p_center = tk.Frame(player_bar, bg=self.card_bg)
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(
+            self.prog_frame,
+            orient=tk.HORIZONTAL,
+            variable=self.progress_var,
+            maximum=100,
+            mode="determinate"
+        )
+        self.progress_bar.pack(fill=tk.X, expand=True)
+
+        # Bottom Player Navigation Control Bar (Pack to BOTTOM - initialized, packed dynamically)
+        self.player_bar = tk.Frame(self.root, bg=self.card_bg, padx=8, pady=8, highlightthickness=1, highlightbackground="#1e293b")
+
+        p_center = tk.Frame(self.player_bar, bg=self.card_bg)
         p_center.pack(anchor="center")
 
         self.btn_prev = tk.Button(
@@ -253,20 +266,6 @@ class MultiEngineDesktopReader:
         )
         self.btn_next.pack(side=tk.LEFT, padx=3)
 
-        # Progress Bar Frame (Pack to BOTTOM third)
-        prog_frame = tk.Frame(self.root, bg=self.card_bg, padx=12, pady=4)
-        prog_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=2)
-
-        self.progress_var = tk.DoubleVar(value=0)
-        self.progress_bar = ttk.Progressbar(
-            prog_frame,
-            orient=tk.HORIZONTAL,
-            variable=self.progress_var,
-            maximum=100,
-            mode="determinate"
-        )
-        self.progress_bar.pack(fill=tk.X, expand=True)
-
         # Top Header Card Bar (Pack to TOP)
         header = tk.Frame(self.root, bg="#0d1527", padx=14, pady=10, highlightthickness=1, highlightbackground="#1e293b")
         header.pack(side=tk.TOP, fill=tk.X, padx=10, pady=(8, 4))
@@ -304,9 +303,105 @@ class MultiEngineDesktopReader:
         )
         badge.pack(side=tk.RIGHT)
 
+        # Main Container for View Switching (Library View vs Reader View)
+        self.main_container = tk.Frame(self.root, bg=self.bg_dark)
+        self.main_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=4)
+
+        # ==========================================
+        # SCREEN 1: STORY LIBRARY VIEW FRAME
+        # ==========================================
+        self.library_view_frame = tk.Frame(self.main_container, bg=self.bg_dark)
+
+        # Library Toolbar
+        lib_toolbar = tk.Frame(self.library_view_frame, bg=self.card_bg, padx=14, pady=10, highlightthickness=1, highlightbackground="#1e293b")
+        lib_toolbar.pack(side=tk.TOP, fill=tk.X, pady=(0, 6))
+
+        self.lib_title_label = tk.Label(
+            lib_toolbar,
+            text="📚 THƯ VIỆN TRUYỆN CHỮ",
+            font=("Segoe UI", 11, "bold"),
+            bg=self.card_bg,
+            fg="#f8fafc"
+        )
+        self.lib_title_label.pack(side=tk.LEFT)
+
+        btn_add_story = tk.Button(
+            lib_toolbar,
+            text="📂 Thêm Truyện Mới (.txt)",
+            font=("Segoe UI", 9, "bold"),
+            bg="#0284c7",
+            fg="white",
+            activebackground="#0369a1",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=14,
+            pady=5,
+            cursor="hand2",
+            command=self.open_txt_file
+        )
+        btn_add_story.pack(side=tk.RIGHT)
+
+        # Scrollable Cards Grid Container
+        cards_canvas_frame = tk.Frame(self.library_view_frame, bg=self.bg_dark)
+        cards_canvas_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        self.lib_canvas = tk.Canvas(cards_canvas_frame, bg=self.bg_dark, highlightthickness=0)
+        lib_scrollbar = ttk.Scrollbar(cards_canvas_frame, orient="vertical", command=self.lib_canvas.yview)
+
+        self.cards_inner_frame = tk.Frame(self.lib_canvas, bg=self.bg_dark)
+        self.cards_inner_frame.bind(
+            "<Configure>",
+            lambda e: self.lib_canvas.configure(scrollregion=self.lib_canvas.bbox("all"))
+        )
+
+        self.lib_canvas_window = self.lib_canvas.create_window((0, 0), window=self.cards_inner_frame, anchor="nw")
+        self.lib_canvas.configure(yscrollcommand=lib_scrollbar.set)
+
+        self.lib_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        lib_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.lib_canvas.bind(
+            "<Configure>",
+            lambda e: self.lib_canvas.itemconfig(self.lib_canvas_window, width=e.width)
+        )
+
+        # ==========================================
+        # SCREEN 2: READER PLAYER VIEW FRAME
+        # ==========================================
+        self.reader_view_frame = tk.Frame(self.main_container, bg=self.bg_dark)
+
+        # Reader Top Header Navigation Bar
+        reader_top_bar = tk.Frame(self.reader_view_frame, bg=self.card_bg, padx=12, pady=8, highlightthickness=1, highlightbackground="#1e293b")
+        reader_top_bar.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
+
+        btn_back_lib = tk.Button(
+            reader_top_bar,
+            text="◀️ QUAY LẠI THƯ VIỆN",
+            font=("Segoe UI", 9, "bold"),
+            bg="#0284c7",
+            fg="white",
+            activebackground="#0369a1",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=12,
+            pady=4,
+            cursor="hand2",
+            command=self.show_library_view
+        )
+        btn_back_lib.pack(side=tk.LEFT)
+
+        self.current_story_label = tk.Label(
+            reader_top_bar,
+            text="📖 Đang đọc: Chưa chọn truyện",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.card_bg,
+            fg=self.accent_blue
+        )
+        self.current_story_label.pack(side=tk.LEFT, padx=15)
+
         # Responsive 2-Row Settings Frame
-        settings_frame = tk.Frame(self.root, bg=self.card_bg, padx=10, pady=6, highlightthickness=1, highlightbackground="#1e293b")
-        settings_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=3)
+        settings_frame = tk.Frame(self.reader_view_frame, bg=self.card_bg, padx=10, pady=6, highlightthickness=1, highlightbackground="#1e293b")
+        settings_frame.pack(side=tk.TOP, fill=tk.X, pady=3)
 
         # Row 1: Voice, Speed, Save Settings
         s_row1 = tk.Frame(settings_frame, bg=self.card_bg)
@@ -370,52 +465,9 @@ class MultiEngineDesktopReader:
         )
         btn_save_settings.pack(side=tk.LEFT, padx=(8, 2))
 
-        # Row 2: Story Library Selector, Import, Export, Font Size & Chunking
+        # Row 2: Export, Font Size, Chunking & Paragraph Counter
         s_row2 = tk.Frame(settings_frame, bg=self.card_bg)
         s_row2.pack(side=tk.TOP, fill=tk.X, pady=2)
-
-        tk.Label(s_row2, text="📚 Thư Viện:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(2, 3))
-        self.story_var = tk.StringVar()
-        self.story_combo = ttk.Combobox(
-            s_row2,
-            textvariable=self.story_var,
-            state="readonly",
-            width=22
-        )
-        self.story_combo.pack(side=tk.LEFT, padx=2)
-        self.story_combo.bind("<<ComboboxSelected>>", self.on_story_selected)
-
-        btn_delete_lib = tk.Button(
-            s_row2,
-            text="❌ Xóa TV",
-            font=("Segoe UI", 8, "bold"),
-            bg="#ef4444",
-            fg="white",
-            activebackground="#dc2626",
-            activeforeground="white",
-            relief=tk.FLAT,
-            padx=5,
-            pady=2,
-            cursor="hand2",
-            command=self.delete_from_library
-        )
-        btn_delete_lib.pack(side=tk.LEFT, padx=2)
-
-        btn_open = tk.Button(
-            s_row2,
-            text="📂 Thêm (.txt)",
-            font=("Segoe UI", 9, "bold"),
-            bg="#0284c7",
-            fg="white",
-            activebackground="#0369a1",
-            activeforeground="white",
-            relief=tk.FLAT,
-            padx=8,
-            pady=2,
-            cursor="hand2",
-            command=self.open_txt_file
-        )
-        btn_open.pack(side=tk.LEFT, padx=(6, 2))
 
         btn_export = tk.Button(
             s_row2,
@@ -431,7 +483,7 @@ class MultiEngineDesktopReader:
             cursor="hand2",
             command=self.export_audio_file
         )
-        btn_export.pack(side=tk.LEFT, padx=2)
+        btn_export.pack(side=tk.LEFT, padx=(2, 4))
 
         tk.Label(s_row2, text="🔤 Cỡ chữ:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(6, 2))
         font_spin = ttk.Spinbox(
@@ -453,6 +505,22 @@ class MultiEngineDesktopReader:
         )
         chunk_spin.pack(side=tk.LEFT, padx=2)
 
+        btn_clear = tk.Button(
+            s_row2,
+            text="🗑️ Xóa",
+            font=("Segoe UI", 9),
+            bg="#475569",
+            fg="white",
+            activebackground="#334155",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=8,
+            pady=2,
+            cursor="hand2",
+            command=self.clear_text
+        )
+        btn_clear.pack(side=tk.LEFT, padx=3)
+
         self.para_count_label = tk.Label(
             s_row2,
             text="📖 0 đoạn",
@@ -462,9 +530,9 @@ class MultiEngineDesktopReader:
         )
         self.para_count_label.pack(side=tk.RIGHT, padx=4)
 
-        # Main Reader Text Display Container (Pack LAST to fill REMAINING MIDDLE SPACE)
-        main_frame = tk.Frame(self.root, bg="#050811", highlightthickness=1, highlightbackground="#1e293b")
-        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        # Text Display Container
+        main_frame = tk.Frame(self.reader_view_frame, bg="#050811", highlightthickness=1, highlightbackground="#1e293b")
+        main_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=4)
 
         self.text_display = tk.Text(
             main_frame,
@@ -563,52 +631,133 @@ class MultiEngineDesktopReader:
         files.sort()
         return files
 
-    def update_story_combo(self, select_name=None, auto_load_first=False):
+    def show_library_view(self):
+        self.stop_audio()
+        self.current_view = "library"
+        self.reader_view_frame.pack_forget()
+        self.player_bar.pack_forget()
+        self.library_view_frame.pack(fill=tk.BOTH, expand=True)
+        self.render_library_view()
+        self.status_var.set("📚 Thư viện truyện chữ")
+
+    def render_library_view(self):
+        for widget in self.cards_inner_frame.winfo_children():
+            widget.destroy()
+
         stories = self.scan_library_files()
-        if hasattr(self, 'story_combo'):
-            self.story_combo["values"] = stories
-            if select_name and select_name in stories:
-                self.story_combo.set(select_name)
-            elif stories:
-                if not self.story_var.get() or self.story_var.get() not in stories:
-                    self.story_combo.current(0)
-                if auto_load_first:
-                    self.on_story_selected()
-            else:
-                self.story_combo.set("")
+        self.lib_title_label.config(text=f"📚 THƯ VIỆN TRUYỆN CHỮ ({len(stories)} BỘ TRUYỆN)")
 
-    def on_story_selected(self, event=None):
-        selected_file = self.story_combo.get()
-        if not selected_file:
-            return
-        target_path = os.path.join(self.library_dir, selected_file)
-        if os.path.exists(target_path):
-            try:
-                with open(target_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                self.stop_audio()
-                self.text_display.config(state=tk.NORMAL)
-                self.text_display.delete("1.0", tk.END)
-                self.text_display.insert("1.0", content)
-                self.load_paragraphs_from_text()
-                self.status_var.set(f"📚 Đã tải từ thư viện: {selected_file}")
-            except Exception as e:
-                messagebox.showerror("Lỗi", f"Không thể đọc truyện từ thư viện: {e}")
+        if not stories:
+            empty_frame = tk.Frame(self.cards_inner_frame, bg="#0d1527", padx=30, pady=40, highlightthickness=1, highlightbackground="#1e293b")
+            empty_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=30)
 
-    def delete_from_library(self):
-        selected_file = self.story_combo.get()
-        if not selected_file:
-            messagebox.showinfo("Thông báo", "Chưa chọn truyện nào trong thư viện!")
+            tk.Label(empty_frame, text="📚", font=("Segoe UI", 42), bg="#0d1527", fg="#38bdf8").pack(pady=(0, 10))
+            tk.Label(empty_frame, text="Thư viện của bạn đang trống!", font=("Segoe UI", 14, "bold"), bg="#0d1527", fg="#f8fafc").pack(pady=5)
+            tk.Label(empty_frame, text="Bấm nút '📂 Thêm Truyện Mới (.txt)' để nạp file truyện vào thư viện", font=("Segoe UI", 10), bg="#0d1527", fg="#94a3b8").pack(pady=(0, 15))
+
+            btn = tk.Button(
+                empty_frame,
+                text="📂 Chọn File Truyện (.txt) Để Nạp",
+                font=("Segoe UI", 10, "bold"),
+                bg="#0284c7",
+                fg="white",
+                relief=tk.FLAT,
+                padx=16,
+                pady=8,
+                cursor="hand2",
+                command=self.open_txt_file
+            )
+            btn.pack()
             return
-        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa truyện '{selected_file}' khỏi thư viện?"):
-            target_path = os.path.join(self.library_dir, selected_file)
+
+        for filename in stories:
+            filepath = os.path.join(self.library_dir, filename)
+            size_kb = (os.path.getsize(filepath) / 1024) if os.path.exists(filepath) else 0
+
+            card = tk.Frame(self.cards_inner_frame, bg="#131b2e", padx=16, pady=12, highlightthickness=1, highlightbackground="#1e293b")
+            card.pack(fill=tk.X, padx=15, pady=6)
+
+            info_box = tk.Frame(card, bg="#131b2e")
+            info_box.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+            t_lbl = tk.Label(info_box, text=f"📖  {filename}", font=("Segoe UI", 11, "bold"), bg="#131b2e", fg="#f8fafc", anchor="w")
+            t_lbl.pack(fill=tk.X)
+
+            sub_lbl = tk.Label(info_box, text=f"📄 Kích thước: {size_kb:.1f} KB • Định dạng: Truyện chữ (.txt)", font=("Segoe UI", 9), bg="#131b2e", fg="#94a3b8", anchor="w")
+            sub_lbl.pack(fill=tk.X, pady=(2, 0))
+
+            btn_box = tk.Frame(card, bg="#131b2e")
+            btn_box.pack(side=tk.RIGHT)
+
+            btn_read = tk.Button(
+                btn_box,
+                text="▶️ ĐỌC TRUYỆN",
+                font=("Segoe UI", 9, "bold"),
+                bg="#10b981",
+                fg="white",
+                activebackground="#059669",
+                activeforeground="white",
+                relief=tk.FLAT,
+                padx=14,
+                pady=6,
+                cursor="hand2",
+                command=lambda fn=filename: self.open_story_in_reader(fn)
+            )
+            btn_read.pack(side=tk.LEFT, padx=4)
+
+            btn_del = tk.Button(
+                btn_box,
+                text="🗑️ Xóa",
+                font=("Segoe UI", 9),
+                bg="#ef4444",
+                fg="white",
+                activebackground="#dc2626",
+                activeforeground="white",
+                relief=tk.FLAT,
+                padx=10,
+                pady=6,
+                cursor="hand2",
+                command=lambda fn=filename: self.delete_story_from_library(fn)
+            )
+            btn_del.pack(side=tk.LEFT, padx=4)
+
+    def open_story_in_reader(self, filename):
+        target_path = os.path.join(self.library_dir, filename)
+        if not os.path.exists(target_path):
+            messagebox.showerror("Lỗi", "Không tìm thấy file truyện trong thư viện!")
+            return
+
+        try:
+            with open(target_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            self.stop_audio()
+            self.current_story_name = filename
+            self.current_story_label.config(text=f"📖 Đang đọc: {filename}")
+
+            self.text_display.config(state=tk.NORMAL)
+            self.text_display.delete("1.0", tk.END)
+            self.text_display.insert("1.0", content)
+            self.load_paragraphs_from_text()
+
+            self.library_view_frame.pack_forget()
+            self.reader_view_frame.pack(fill=tk.BOTH, expand=True)
+            self.player_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=(2, 6), before=self.prog_frame)
+            self.current_view = "reader"
+            self.status_var.set(f"📖 Đã mở: {filename}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể đọc truyện: {e}")
+
+    def delete_story_from_library(self, filename):
+        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa truyện '{filename}' khỏi thư viện?"):
+            target_path = os.path.join(self.library_dir, filename)
             if os.path.exists(target_path):
                 try:
                     os.remove(target_path)
                 except Exception as e:
                     print("Error deleting file:", e)
-            self.update_story_combo()
-            self.status_var.set(f"🗑️ Đã xóa '{selected_file}' khỏi thư viện")
+            self.render_library_view()
+            self.status_var.set(f"🗑️ Đã xóa '{filename}' khỏi thư viện")
 
     def open_txt_file(self):
         filename = filedialog.askopenfilename(
@@ -620,19 +769,12 @@ class MultiEngineDesktopReader:
                 with open(filename, "r", encoding="utf-8") as f:
                     content = f.read()
 
-                # Automatically save copy to library folder for permanent persistence
                 base_name = os.path.basename(filename)
                 lib_dest = os.path.join(self.library_dir, base_name)
                 with open(lib_dest, "w", encoding="utf-8") as f:
                     f.write(content)
 
-                self.stop_audio()
-                self.text_display.config(state=tk.NORMAL)
-                self.text_display.delete("1.0", tk.END)
-                self.text_display.insert("1.0", content)
-                self.load_paragraphs_from_text()
-
-                self.update_story_combo(select_name=base_name)
+                self.open_story_in_reader(base_name)
                 self.status_var.set(f"📂 Đã nạp & lưu vào thư viện: {base_name}")
             except Exception as e:
                 messagebox.showerror("Lỗi", f"Không thể đọc file: {e}")
