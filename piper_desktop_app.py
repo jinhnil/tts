@@ -42,13 +42,45 @@ class MultiEngineDesktopReader:
 
         # Base path detection
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        # Detect Piper.exe
-        default_piper = os.path.join(self.base_dir, "piper", "piper.exe")
-        if not os.path.exists(default_piper):
-            default_piper = os.path.join(self.base_dir, "piper.exe")
 
-        self.piper_exe = default_piper
+        candidate_dirs = [
+            os.path.dirname(os.path.abspath(sys.argv[0])),
+            os.getcwd(),
+            self.base_dir,
+            os.path.dirname(self.base_dir),
+            getattr(sys, '_MEIPASS', '')
+        ]
+
+        # Detect Piper.exe
+        self.piper_exe = None
+        for d in candidate_dirs:
+            if not d:
+                continue
+            p1 = os.path.join(d, "piper", "piper.exe")
+            p2 = os.path.join(d, "piper.exe")
+            if os.path.exists(p1):
+                self.piper_exe = p1
+                break
+            elif os.path.exists(p2):
+                self.piper_exe = p2
+                break
+
+        if not self.piper_exe:
+            self.piper_exe = os.path.join(self.base_dir, "piper.exe")
+
+        # Detect Default ONNX Model
+        self.model_path = None
+        for d in candidate_dirs:
+            if not d:
+                continue
+            m = os.path.join(d, "vi_VN-vais1000-medium.onnx")
+            if os.path.exists(m):
+                self.model_path = m
+                break
+
+        if not self.model_path:
+            self.model_path = os.path.join(self.base_dir, "vi_VN-vais1000-medium.onnx")
+
         self.onnx_models = self.scan_onnx_models()
 
         # App Variables
@@ -70,11 +102,23 @@ class MultiEngineDesktopReader:
         self.setup_ui()
 
     def scan_onnx_models(self):
-        models = glob.glob(os.path.join(self.base_dir, "*.onnx"))
+        search_dirs = [
+            self.base_dir,
+            os.getcwd(),
+            os.path.dirname(self.base_dir),
+            os.path.dirname(os.path.abspath(sys.argv[0]))
+        ]
         model_dict = {}
-        for m in models:
-            filename = os.path.basename(m)
-            model_dict[filename] = m
+        for d in search_dirs:
+            if d and os.path.exists(d):
+                models = glob.glob(os.path.join(d, "*.onnx"))
+                for m in models:
+                    filename = os.path.basename(m)
+                    model_dict[filename] = m
+
+        if not model_dict:
+            default_m = os.path.join(self.base_dir, "vi_VN-vais1000-medium.onnx")
+            model_dict["vi_VN-vais1000-medium.onnx"] = default_m
         return model_dict
 
     def setup_ui(self):
@@ -107,6 +151,7 @@ class MultiEngineDesktopReader:
         self.voice_map = {
             "🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện)": "edge_hoaimy",
             "🌟 Microsoft Nam Minh (Neural Nam - Trầm Ấm)": "edge_namminh",
+            "⚡ Piper AI Offline (Cục bộ - vais1000)": "piper_local",
             "🚀 Sherpa-ONNX Tiếng Việt Engine (K2-FSA Kaldi)": "sherpa_onnx",
             "🔥 Kokoro-82M AI Tiếng Việt (anphunl/Kokoro)": "kokoro_vi",
         }
@@ -540,7 +585,9 @@ class MultiEngineDesktopReader:
                 self.root.after(100, self.next_paragraph)
 
         except Exception as e:
-            print(f"Error in paragraph worker: {e}")
+            err_msg = str(e)
+            print(f"Error in paragraph worker: {err_msg}")
+            self.root.after(0, lambda msg=err_msg: self.status_var.set(f"❌ Lỗi: {msg[:50]}"))
             self._cleanup_file(temp_audio)
 
     def _cleanup_file(self, filepath):
