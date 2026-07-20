@@ -3,24 +3,33 @@ import sys
 import time
 import subprocess
 import threading
+import asyncio
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-# Try loading pygame for robust audio control, fallback to winsound
+# Try loading pygame for robust audio playback
 HAS_PYGAME = False
 try:
     import pygame
-    pygame.mixer.init(frequency=22050, size=-16, channels=1, buffer=1024)
+    pygame.mixer.init()
     HAS_PYGAME = True
 except Exception:
     import winsound
 
-class StandalonePiperDesktopApp:
+# Try loading edge-tts for Neural HD Vietnamese voices
+HAS_EDGE_TTS = False
+try:
+    import edge_tts
+    HAS_EDGE_TTS = True
+except ImportError:
+    pass
+
+class MultiEngineDesktopReader:
     def __init__(self, root):
         self.root = root
-        self.root.title("Ứng Dụng Đọc Truyện Tiếng Việt Offline - Piper AI Desktop")
-        self.root.geometry("850x650")
-        self.root.minsize(700, 500)
+        self.root.title("Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine Desktop")
+        self.root.geometry("880x680")
+        self.root.minsize(720, 520)
 
         # Base path detection
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,28 +51,17 @@ class StandalonePiperDesktopApp:
         self.is_playing = False
         self.is_paused = False
 
+        self.voice_var = tk.StringVar(value="edge_hoaimy")
         self.speed_var = tk.DoubleVar(value=1.0)
         self.font_size_var = tk.IntVar(value=13)
         self.status_var = tk.StringVar(value="Sẵn sàng")
 
-        # Audio process reference & thread safety lock
+        # Thread Safety & Process tracking
         self.current_process = None
         self.audio_lock = threading.Lock()
         self.play_thread_id = 0
 
         self.setup_ui()
-        self.check_files()
-
-    def check_files(self):
-        p_ok = os.path.exists(self.piper_exe)
-        m_ok = os.path.exists(self.model_path)
-        if p_ok and m_ok:
-            self.status_var.set("✅ Đã tự động nhận diện Piper Engine & Model Tiếng Việt thành công!")
-        else:
-            missing = []
-            if not p_ok: missing.append("piper/piper.exe")
-            if not m_ok: missing.append("vi_VN-vais1000-medium.onnx")
-            self.status_var.set(f"⚠️ Thiếu file: {', '.join(missing)}")
 
     def setup_ui(self):
         # Configure Colors & Theme
@@ -78,37 +76,57 @@ class StandalonePiperDesktopApp:
 
         title = tk.Label(
             header,
-            text="📖 Piper AI Desktop Reader - Đọc Truyện Offline",
-            font=("Segoe UI", 14, "bold"),
+            text="🎧 Đọc Truyện Tiếng Việt Multi-Engine (Edge Neural & Piper AI)",
+            font=("Segoe UI", 13, "bold"),
             bg=self.bg_dark,
             fg=self.accent_blue
         )
         title.pack(side=tk.LEFT)
 
-        # Settings Controls (Speed & Font Size)
-        controls_frame = tk.Frame(header, bg=self.bg_dark)
-        controls_frame.pack(side=tk.RIGHT)
+        # Settings Bar
+        settings_frame = tk.Frame(self.root, bg=self.card_bg, padding=8)
+        settings_frame.pack(fill=tk.X)
 
-        tk.Label(controls_frame, text="Tốc độ:", font=("Segoe UI", 9), bg=self.bg_dark, fg="#94a3b8").pack(side=tk.LEFT, padx=(5, 2))
+        # Voice Selector Dropdown
+        tk.Label(settings_frame, text="Giọng Đọc:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(5, 2))
         
+        voices_options = [
+            ("🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện Cực Hay)", "edge_hoaimy"),
+            ("🌟 Microsoft Nam Minh (Neural Nam - Đọc Truyện Trầm Ấm)", "edge_namminh"),
+            ("⚡ Piper AI Offline (Cục bộ - vais1000)", "piper_local"),
+        ]
+
+        self.voice_combo = ttk.Combobox(
+            settings_frame,
+            textvariable=self.voice_var,
+            values=[v[0] for v in voices_options],
+            state="readonly",
+            width=45
+        )
+        self.voice_combo.current(0)
+        self.voice_combo.pack(side=tk.LEFT, padx=5)
+        self.voice_combo.bind("<<ComboboxSelected>>", self.on_voice_changed)
+
+        # Speed Slider
+        tk.Label(settings_frame, text="Tốc độ:", font=("Segoe UI", 9), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(15, 2))
         self.speed_scale = ttk.Scale(
-            controls_frame,
+            settings_frame,
             from_=0.5,
             to=2.0,
             variable=self.speed_var,
             orient=tk.HORIZONTAL,
-            length=100,
+            length=90,
             command=self.on_setting_changed
         )
         self.speed_scale.pack(side=tk.LEFT, padx=2)
 
-        self.speed_lbl = tk.Label(controls_frame, text="1.0x", font=("Segoe UI", 9, "bold"), bg=self.bg_dark, fg=self.accent_blue)
+        self.speed_lbl = tk.Label(settings_frame, text="1.0x", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.accent_blue)
         self.speed_lbl.pack(side=tk.LEFT, padx=(0, 10))
 
-        tk.Label(controls_frame, text="Cỡ chữ:", font=("Segoe UI", 9), bg=self.bg_dark, fg="#94a3b8").pack(side=tk.LEFT, padx=(5, 2))
-        
+        # Font Size
+        tk.Label(settings_frame, text="Cỡ chữ:", font=("Segoe UI", 9), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(5, 2))
         font_spin = ttk.Spinbox(
-            controls_frame,
+            settings_frame,
             from_=9,
             to=24,
             textvariable=self.font_size_var,
@@ -117,19 +135,19 @@ class StandalonePiperDesktopApp:
         )
         font_spin.pack(side=tk.LEFT, padx=2)
 
-        # File & Action Toolbar
-        toolbar = tk.Frame(self.root, bg=self.card_bg, padding=8)
+        # Toolbar Frame
+        toolbar = tk.Frame(self.root, bg="#334155", padding=6)
         toolbar.pack(fill=tk.X)
 
         btn_open = tk.Button(
             toolbar,
             text="📂 Mở File Truyện (.txt)",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             bg="#2563eb",
             fg="white",
             relief=tk.FLAT,
             padx=10,
-            pady=4,
+            pady=3,
             command=self.open_txt_file
         )
         btn_open.pack(side=tk.LEFT, padx=5)
@@ -138,11 +156,11 @@ class StandalonePiperDesktopApp:
             toolbar,
             text="🗑️ Xóa hết",
             font=("Segoe UI", 9),
-            bg="#475569",
+            bg="#64748b",
             fg="white",
             relief=tk.FLAT,
             padx=8,
-            pady=4,
+            pady=3,
             command=self.clear_text
         )
         btn_clear.pack(side=tk.LEFT, padx=5)
@@ -151,8 +169,8 @@ class StandalonePiperDesktopApp:
             toolbar,
             text="0 đoạn | Đoạn hiện tại: 0/0",
             font=("Segoe UI", 9),
-            bg=self.card_bg,
-            fg="#94a3b8"
+            bg="#334155",
+            fg="#cbd5e1"
         )
         self.para_count_label.pack(side=tk.RIGHT, padx=10)
 
@@ -187,10 +205,11 @@ class StandalonePiperDesktopApp:
 
         # Initial Sample Text
         sample_text = (
-            "Chào mừng bạn đến với Ứng Dụng Đọc Truyện Tiếng Việt Offline Desktop!\n\n"
-            "Ứng dụng chạy trực tiếp 100% trên máy tính của bạn sử dụng mô hình Piper AI Tiếng Việt.\n\n"
-            "Bạn có thể mở bất kỳ file truyện chữ .txt nào để thưởng thức giọng đọc mượt mà, "
-            "không bị ngắt quãng hay lặp tiếng khi thay đổi đoạn hoặc tốc độ đọc."
+            "Chào mừng bạn đến với Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine!\n\n"
+            "Bạn có thể chọn giọng Microsoft Hoài My (Nữ), Nam Minh (Nam) đọc truyện cực mượt "
+            "hoặc chuyển sang bộ đọc Piper AI Offline khi không có mạng.\n\n"
+            "Mở bất kỳ file truyện chữ .txt nào để thưởng thức giọng đọc mượt mà, "
+            "không bị lặp hay giật tiếng khi chuyển đoạn."
         )
         self.text_display.insert("1.0", sample_text)
         self.load_paragraphs_from_text()
@@ -214,7 +233,7 @@ class StandalonePiperDesktopApp:
 
         self.btn_play = tk.Button(
             player_bar,
-            text="▶️ PHÁT / TẠM DỪNG",
+            text="▶️ PHÁT (PLAY)",
             font=("Segoe UI", 11, "bold"),
             bg="#0284c7",
             fg="white",
@@ -264,6 +283,14 @@ class StandalonePiperDesktopApp:
         )
         self.status_label.pack(side=tk.LEFT, padx=10)
 
+    def get_selected_voice_code(self):
+        val = self.voice_combo.get()
+        if "Hoài My" in val:
+            return "edge_hoaimy"
+        elif "Nam Minh" in val:
+            return "edge_namminh"
+        return "piper_local"
+
     def update_font_size(self):
         sz = self.font_size_var.get()
         self.text_display.config(font=("Segoe UI", sz))
@@ -272,10 +299,13 @@ class StandalonePiperDesktopApp:
             font=("Segoe UI", sz, "bold")
         )
 
+    def on_voice_changed(self, event=None):
+        if self.is_playing:
+            self.play_paragraph(self.current_para_index)
+
     def on_setting_changed(self, val):
         r = float(val)
         self.speed_lbl.config(text=f"{r:.1f}x")
-        # If playing, restart current paragraph cleanly with new speed
         if self.is_playing:
             self.play_paragraph(self.current_para_index)
 
@@ -322,7 +352,6 @@ class StandalonePiperDesktopApp:
             return
 
         target_text = self.paragraphs[index]
-        # Find position in text widget
         start_pos = "1.0"
         while True:
             pos = self.text_display.search(target_text[:30], start_pos, stopindex=tk.END)
@@ -360,14 +389,12 @@ class StandalonePiperDesktopApp:
     def toggle_play_pause(self):
         if self.is_playing:
             if self.is_paused:
-                # Resume
                 self.is_paused = False
                 if HAS_PYGAME:
                     pygame.mixer.music.unpause()
                 self.btn_play.config(text="⏸ TẠM DỪNG", bg="#eab308")
                 self.status_var.set(f"🔊 Đang đọc đoạn {self.current_para_index + 1}...")
             else:
-                # Pause
                 self.is_paused = True
                 if HAS_PYGAME:
                     pygame.mixer.music.pause()
@@ -408,58 +435,79 @@ class StandalonePiperDesktopApp:
 
         thread_id = self.play_thread_id
         text_content = self.paragraphs[index]
+        voice_code = self.get_selected_voice_code()
 
         thread = threading.Thread(
             target=self._synthesize_and_play_worker,
-            args=(text_content, thread_id),
+            args=(text_content, voice_code, thread_id),
             daemon=True
         )
         thread.start()
 
-    def _synthesize_and_play_worker(self, text, thread_id):
-        # 1. Check thread validity
+    def _synthesize_and_play_worker(self, text, voice_code, thread_id):
         if thread_id != self.play_thread_id or not self.is_playing:
             return
 
-        temp_wav = os.path.join(self.base_dir, f"temp_para_{thread_id}.wav")
+        temp_audio = os.path.join(self.base_dir, f"temp_para_{thread_id}.mp3")
 
         try:
-            self.root.after(0, lambda: self.status_var.set(f"⏳ Đang xử lý Piper AI đoạn {self.current_para_index + 1}..."))
-            
+            self.root.after(0, lambda: self.status_var.set(f"⏳ Đang xử lý âm thanh đoạn {self.current_para_index + 1}..."))
             rate = self.speed_var.get()
-            length_scale = 1.0 / max(0.5, min(2.0, rate))
 
-            # Run Piper Process
-            proc = subprocess.Popen(
-                [self.piper_exe, "--model", self.model_path, "--output_file", temp_wav, "--length_scale", str(length_scale)],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8"
-            )
-            
-            with self.audio_lock:
-                if thread_id != self.play_thread_id:
-                    proc.kill()
-                    return
-                self.current_process = proc
+            success = False
 
-            proc.communicate(input=text)
+            # Option A: Edge Neural Voices (Hoài My & Nam Minh)
+            if voice_code in ["edge_hoaimy", "edge_namminh"] and HAS_EDGE_TTS:
+                edge_voice = "vi-VN-NamMinhNeural" if voice_code == "edge_namminh" else "vi-VN-HoaiMyNeural"
+                rate_pct = int((rate - 1.0) * 100)
+                rate_str = f"+{rate_pct}%" if rate_pct >= 0 else f"{rate_pct}%"
+
+                async def run_edge():
+                    comm = edge_tts.Communicate(text, edge_voice, rate=rate_str)
+                    await comm.save(temp_audio)
+
+                try:
+                    asyncio.run(run_edge())
+                    if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
+                        success = True
+                except Exception as edge_err:
+                    print("Edge TTS synthesis failed, fallback to Piper:", edge_err)
+
+            # Option B: Piper AI Local Synthesis
+            if not success:
+                temp_audio = os.path.join(self.base_dir, f"temp_para_{thread_id}.wav")
+                length_scale = 1.0 / max(0.5, min(2.0, rate))
+                proc = subprocess.Popen(
+                    [self.piper_exe, "--model", self.model_path, "--output_file", temp_audio, "--length_scale", str(length_scale)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8"
+                )
+                with self.audio_lock:
+                    if thread_id != self.play_thread_id:
+                        proc.kill()
+                        return
+                    self.current_process = proc
+
+                proc.communicate(input=text)
+                if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
+                    success = True
 
             if thread_id != self.play_thread_id or not self.is_playing:
-                self._cleanup_file(temp_wav)
+                self._cleanup_file(temp_audio)
                 return
 
-            if not os.path.exists(temp_wav):
+            if not success or not os.path.exists(temp_audio):
                 self.root.after(0, lambda: self.status_var.set("❌ Lỗi: Không thể tổng hợp âm thanh"))
                 return
 
-            # 2. Play Audio
+            # Play Audio
             self.root.after(0, lambda: self.status_var.set(f"🔊 Đang đọc đoạn {self.current_para_index + 1}/{len(self.paragraphs)}..."))
 
             if HAS_PYGAME:
-                pygame.mixer.music.load(temp_wav)
+                pygame.mixer.music.load(temp_audio)
                 pygame.mixer.music.play()
 
                 while pygame.mixer.music.get_busy() or self.is_paused:
@@ -468,17 +516,17 @@ class StandalonePiperDesktopApp:
                         break
                     time.sleep(0.05)
             else:
-                winsound.PlaySound(temp_wav, winsound.SND_FILENAME)
+                winsound.PlaySound(temp_audio, winsound.SND_FILENAME)
 
-            self._cleanup_file(temp_wav)
+            self._cleanup_file(temp_audio)
 
-            # 3. Auto-advance to next paragraph if still valid thread
+            # Auto-advance to next paragraph
             if thread_id == self.play_thread_id and self.is_playing and not self.is_paused:
                 self.root.after(100, self.next_paragraph)
 
         except Exception as e:
             print(f"Error in paragraph worker: {e}")
-            self._cleanup_file(temp_wav)
+            self._cleanup_file(temp_audio)
 
     def _cleanup_file(self, filepath):
         try:
@@ -489,5 +537,5 @@ class StandalonePiperDesktopApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = StandalonePiperDesktopApp(root)
+    app = MultiEngineDesktopReader(root)
     root.mainloop()
