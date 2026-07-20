@@ -17,6 +17,7 @@ import {
   getCleanVoiceName,
   getVoiceId,
   findVoiceById,
+  GOOGLE_TTS_VOICE_ID,
 } from "../services/webSpeechService";
 import {
   ArrowLeft,
@@ -553,7 +554,12 @@ export const Reader: React.FC<ReaderProps> = ({
                 }}
                 className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-xs text-white"
               >
-                <optgroup label="Tiếng Việt">
+                <optgroup label="Giọng Đọc Trực Tuyến (Khuyên Dùng - Đọc Chuẩn)">
+                  <option value={GOOGLE_TTS_VOICE_ID}>
+                    🌟 Google Tiếng Việt (Cloud HD - Tự Nhiên, Chuẩn Nữ)
+                  </option>
+                </optgroup>
+                <optgroup label="Giọng Đọc Trình Duyệt (Web Speech)">
                   {webSpeechVoices
                     .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
                     .filter(({ voice }) => isVietnameseVoice(voice))
