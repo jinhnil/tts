@@ -57,6 +57,35 @@ export const getCleanVoiceName = (voice: SpeechSynthesisVoice): string => {
   return name;
 };
 
+export const getVoiceId = (voice: SpeechSynthesisVoice, index: number): string => {
+  if (!voice) return `voice_${index}`;
+  const base = voice.voiceURI || voice.name || "voice";
+  return `${base}__idx_${index}`;
+};
+
+export const findVoiceById = (voices: SpeechSynthesisVoice[], id: string): SpeechSynthesisVoice | undefined => {
+  if (!id || voices.length === 0) return undefined;
+
+  // 1. Check for index suffix __idx_N
+  const match = id.match(/__idx_(\d+)$/);
+  if (match) {
+    const idx = parseInt(match[1], 10);
+    if (!isNaN(idx) && voices[idx]) {
+      return voices[idx];
+    }
+  }
+
+  // 2. Exact match on voiceURI
+  const byURI = voices.find((v) => v.voiceURI === id);
+  if (byURI) return byURI;
+
+  // 3. Exact match on name
+  const byName = voices.find((v) => v.name === id);
+  if (byName) return byName;
+
+  return undefined;
+};
+
 export const getWebSpeechVoices = (): SpeechSynthesisVoice[] => {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
   return window.speechSynthesis.getVoices();
@@ -106,7 +135,7 @@ export const speakWebSpeech = (
 
   const voices = getWebSpeechVoices();
   const selectedVoice =
-    voices.find((v) => v.voiceURI === voiceURI) ||
+    findVoiceById(voices, voiceURI) ||
     voices.find((v) => isVietnameseVoice(v)) ||
     voices[0];
 

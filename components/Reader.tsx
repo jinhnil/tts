@@ -15,6 +15,8 @@ import {
   getWebSpeechVoices,
   isVietnameseVoice,
   getCleanVoiceName,
+  getVoiceId,
+  findVoiceById,
 } from "../services/webSpeechService";
 import {
   ArrowLeft,
@@ -138,23 +140,23 @@ export const Reader: React.FC<ReaderProps> = ({
 
       if (aIsVi && !bIsVi) return -1;
       if (!aIsVi && bIsVi) return 1;
-      return a.name.localeCompare(b.name);
+      return (a.name || "").localeCompare(b.name || "");
     });
 
     setWebSpeechVoices(allVoices);
 
     // Auto-select logic
     setSettings((prev) => {
-      const voiceExists = allVoices.some(
-        (v) => v.voiceURI === prev.webSpeechVoiceURI,
-      );
+      const currentVoice = findVoiceById(allVoices, prev.webSpeechVoiceURI);
 
-      if (!prev.webSpeechVoiceURI || !voiceExists) {
-        const viVoice = allVoices.find((v) => isVietnameseVoice(v));
-        if (viVoice) {
-          return { ...prev, webSpeechVoiceURI: viVoice.voiceURI };
+      if (!prev.webSpeechVoiceURI || !currentVoice) {
+        const viVoiceIndex = allVoices.findIndex((v) => isVietnameseVoice(v));
+        if (viVoiceIndex !== -1) {
+          const viId = getVoiceId(allVoices[viVoiceIndex], viVoiceIndex);
+          return { ...prev, webSpeechVoiceURI: viId };
         } else if (allVoices.length > 0) {
-          return { ...prev, webSpeechVoiceURI: allVoices[0].voiceURI };
+          const firstId = getVoiceId(allVoices[0], 0);
+          return { ...prev, webSpeechVoiceURI: firstId };
         }
       }
       return prev;
@@ -538,29 +540,36 @@ export const Reader: React.FC<ReaderProps> = ({
 
               <select
                 value={tempSettings.webSpeechVoiceURI}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const newURI = e.target.value;
                   setTempSettings((s) => ({
                     ...s,
-                    webSpeechVoiceURI: e.target.value,
-                  }))
-                }
+                    webSpeechVoiceURI: newURI,
+                  }));
+                  setSettings((s) => ({
+                    ...s,
+                    webSpeechVoiceURI: newURI,
+                  }));
+                }}
                 className="w-full bg-gray-700 border border-gray-600 rounded p-2 text-xs text-white"
               >
                 <optgroup label="Tiếng Việt">
                   {webSpeechVoices
-                    .filter((v) => isVietnameseVoice(v))
-                    .map((v) => (
-                      <option key={v.voiceURI} value={v.voiceURI}>
-                        {getCleanVoiceName(v)}
+                    .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
+                    .filter(({ voice }) => isVietnameseVoice(voice))
+                    .map(({ voice, id }) => (
+                      <option key={id} value={id}>
+                        {getCleanVoiceName(voice)}
                       </option>
                     ))}
                 </optgroup>
                 <optgroup label="Ngôn ngữ khác">
                   {webSpeechVoices
-                    .filter((v) => !isVietnameseVoice(v))
-                    .map((v) => (
-                      <option key={v.voiceURI} value={v.voiceURI}>
-                        {getCleanVoiceName(v)}
+                    .map((v, idx) => ({ voice: v, idx, id: getVoiceId(v, idx) }))
+                    .filter(({ voice }) => !isVietnameseVoice(voice))
+                    .map(({ voice, id }) => (
+                      <option key={id} value={id}>
+                        {getCleanVoiceName(voice)}
                       </option>
                     ))}
                 </optgroup>
