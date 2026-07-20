@@ -64,12 +64,12 @@ export const getWebSpeechVoices = (): SpeechSynthesisVoice[] => {
 
 /**
  * Splits a long text string into smaller sub-chunks (max ~250 chars)
- * at sentence boundaries to prevent Chrome Web Speech API freeze/crash.
+ * at sentence boundaries to prevent Chrome/Edge Web Speech API freeze.
  */
 const splitIntoSubTexts = (text: string, maxLen = 250): string[] => {
-  if (text.length <= maxLen) return [text];
+  if (!text || text.length <= maxLen) return [text];
 
-  const sentences = text.match(/[^.!?\n]+[.!?\n]+/g) || [text];
+  const sentences = text.match(/[^.!?\n]+[.!?\n]*|\n+/g) || [text];
   const subTexts: string[] = [];
   let current = "";
 
@@ -132,19 +132,16 @@ export const speakWebSpeech = (
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
+      if (
+        selectedVoice.lang &&
+        selectedVoice.lang !== "undefined" &&
+        selectedVoice.lang.trim() !== ""
+      ) {
+        utterance.lang = selectedVoice.lang;
+      }
+    } else {
+      utterance.lang = "vi-VN";
     }
-
-    // Ensure utterance.lang is never 'undefined' or empty string
-    let langTag = selectedVoice?.lang;
-    if (
-      !langTag ||
-      langTag === "undefined" ||
-      langTag.trim() === "" ||
-      (selectedVoice && isVietnameseVoice(selectedVoice))
-    ) {
-      langTag = "vi-VN";
-    }
-    utterance.lang = langTag;
 
     utterance.rate = rate;
     utterance.pitch = pitch;
