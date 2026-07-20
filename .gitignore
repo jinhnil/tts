@@ -25,3 +25,12 @@ dist-ssr
 .next/
 out/
 
+# Audio temp files & binary models
+*.wav
+*.mp3
+temp_*
+*.onnx
+piper/
+build/
+dist/
+
