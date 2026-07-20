@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import time
 import glob
 import subprocess
@@ -562,6 +563,8 @@ class MultiEngineDesktopReader:
 
     def load_paragraphs_from_text(self):
         raw = self.text_display.get("1.0", tk.END)
+        # Clean out any previously rendered chunk headers like "#1\n", "#2\n"
+        raw = re.sub(r'(?m)^#\d+\s*\n?', '', raw)
         if not raw.strip():
             self.paragraphs = []
             self.current_para_index = 0
@@ -870,7 +873,8 @@ class MultiEngineDesktopReader:
             self._cleanup_file(temp_audio)
 
     def export_audio_file(self):
-        text_content = self.text_display.get("1.0", tk.END).strip()
+        raw_content = self.text_display.get("1.0", tk.END)
+        text_content = re.sub(r'(?m)^#\d+\s*\n?', '', raw_content).strip()
         if not text_content:
             messagebox.showwarning("Cảnh báo", "Không có văn bản để xuất file âm thanh!")
             return
