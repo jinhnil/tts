@@ -1,20 +1,10 @@
 @echo off
-title Build Standalone EXE - Piper AI Desktop Reader
-color 0B
+title Piper AI TTS Reader - 1 Click Launcher
+color 0A
 echo =======================================================
-echo   Đang Tạo File PiperDesktopReader.exe Standalone
+echo   Piper AI Tiếng Việt - Khởi Chạy 1-Click (Node.js)
 echo =======================================================
 echo.
-echo 1. Dang cai dat PyInstaller & Pygame...
-pip install pyinstaller pygame
-
-echo.
-echo 2. Dang dong goi piper_desktop_app.py thanh file EXE duy nhat...
-pyinstaller --noconsole --onefile piper_desktop_app.py --name "PiperDesktopReader"
-
-echo.
-echo =======================================================
-echo   HOAN THANH! File PiperDesktopReader.exe da đuoc tao:
-echo   -> Thư muc: dist\PiperDesktopReader.exe
-echo =======================================================
-pause
+echo Đang mở ứng dụng đọc truyện...
+start "" "http://localhost:3000"
+npm run dev
