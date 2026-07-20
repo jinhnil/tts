@@ -12,7 +12,7 @@ const DEFAULT_SETTINGS: ReaderSettings = {
   playbackRate: 1.0,
   pitch: 1.0,
   volume: 100,
-  webSpeechVoiceURI: "edge_hoaimy",
+  webSpeechVoiceURI: "piper_local",
   sentencesPerChunk: 50,
   viewMode: "continuous",
 };

@@ -5,10 +5,16 @@ export interface CloudVoice {
   id: string;
   name: string;
   gender: string;
-  provider: "edge" | "google";
+  provider: "edge" | "google" | "piper";
 }
 
 export const CLOUD_VOICES: CloudVoice[] = [
+  {
+    id: "piper_local",
+    name: "🔥 Piper AI Offline (Cục bộ - Tiếng Việt)",
+    gender: "Nữ",
+    provider: "piper",
+  },
   {
     id: "edge_hoaimy",
     name: "Microsoft Hoài My (Neural Nữ - Edge)",
@@ -219,12 +225,28 @@ const playGoogleAudioChunk = (
   });
 };
 
+const synthesizePiperSpeech = async (
+  text: string,
+  rate: number,
+): Promise<Blob> => {
+  const res = await fetch("/api/piper", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, rate }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Piper synthesis failed");
+  }
+  return await res.blob();
+};
+
 /**
  * Main function to speak text using chosen Cloud Voice
  */
 export const speakCloudTTS = (
   text: string,
-  voiceId: string, // 'edge_hoaimy' | 'edge_namminh' | 'google_vi'
+  voiceId: string, // 'piper_local' | 'edge_hoaimy' | 'edge_namminh' | 'google_vi'
   rate: number,
   volume: number,
   onEnd: () => void,
@@ -253,6 +275,31 @@ export const speakCloudTTS = (
 
     try {
       let playedSuccessfully = false;
+
+      // Tier 0: Try Piper Local AI if requested
+      if (voiceId === "piper_local") {
+        try {
+          const audioBlob = await synthesizePiperSpeech(subText, rate);
+          if (!isCancelled) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            activeAudio = audio;
+            audio.volume = Math.max(0, Math.min(1, volume / 100));
+
+            await new Promise<void>((res, rej) => {
+              audio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                res();
+              };
+              audio.onerror = rej;
+              audio.play().catch(rej);
+            });
+            playedSuccessfully = true;
+          }
+        } catch (pErr) {
+          console.warn("Piper Local synthesis failed, trying Edge/Google fallback:", pErr);
+        }
+      }
 
       // Tier 1: Try Edge Neural WebSocket if requested
       if (voiceId === "edge_hoaimy" || voiceId === "edge_namminh") {
