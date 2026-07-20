@@ -110,10 +110,6 @@ class MultiEngineDesktopReader:
         self.sentences_per_chunk_var = tk.IntVar(value=5)
         self.status_var = tk.StringVar(value="Sẵn sàng")
 
-        # Trace setting variables to auto-apply immediately
-        self.font_size_var.trace_add("write", self.update_font_size)
-        self.sentences_per_chunk_var.trace_add("write", self.on_chunk_setting_changed)
-
         # Thread Safety & Process tracking
         self.current_process = None
         self.audio_lock = threading.Lock()
@@ -363,10 +359,26 @@ class MultiEngineDesktopReader:
             from_=1,
             to=50,
             textvariable=self.sentences_per_chunk_var,
-            width=3,
-            command=self.on_chunk_setting_changed
+            width=3
         )
         chunk_spin.pack(side=tk.LEFT, padx=2)
+
+        # Save Settings Button
+        btn_save_settings = tk.Button(
+            settings_frame,
+            text="💾 Lưu Cài Đặt",
+            font=("Segoe UI", 9, "bold"),
+            bg="#2563eb",
+            fg="white",
+            activebackground="#1d4ed8",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=12,
+            pady=3,
+            cursor="hand2",
+            command=self.apply_all_settings
+        )
+        btn_save_settings.pack(side=tk.LEFT, padx=(15, 5))
 
         # Toolbar Frame (Pack to TOP)
         toolbar = tk.Frame(self.root, bg="#1e293b", padx=10, pady=8, highlightthickness=1, highlightbackground="#334155")
@@ -482,8 +494,7 @@ class MultiEngineDesktopReader:
             pass
 
     def on_voice_changed(self, event=None):
-        if self.is_playing:
-            self.play_paragraph(self.current_para_index)
+        pass
 
     def on_setting_changed(self, val):
         try:
@@ -491,6 +502,38 @@ class MultiEngineDesktopReader:
             self.speed_lbl.config(text=f"{r:.1f}x")
         except Exception:
             pass
+
+    def apply_all_settings(self):
+        """Applies all modified settings (Voice, Speed, Font Size, Sentences Per Chunk) at once"""
+        try:
+            # 1. Update font size
+            sz = int(self.font_size_var.get())
+            sz = max(8, min(40, sz))
+            self.text_display.config(font=("Segoe UI", sz))
+
+            # 2. Update speed label
+            spd = float(self.speed_var.get())
+            self.speed_lbl.config(text=f"{spd:.1f}x")
+
+            # 3. Save previous playing state & current index
+            was_playing = self.is_playing
+            curr_idx = self.current_para_index
+
+            # 4. Reload & re-chunk paragraphs with new sentences_per_chunk_var
+            self.load_paragraphs_from_text()
+
+            # 5. Apply font size to all paragraph cards
+            for idx in range(len(self.paragraphs)):
+                self.text_display.tag_config(f"body_{idx}", font=("Segoe UI", sz))
+
+            # 6. If audio was playing, restart with new settings
+            if was_playing and self.paragraphs:
+                target_idx = min(curr_idx, max(0, len(self.paragraphs) - 1))
+                self.play_paragraph(target_idx)
+
+            self.status_var.set("✅ Đã lưu và áp dụng cài đặt mới thành công!")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể lưu cài đặt: {e}")
 
     def open_txt_file(self):
         filename = filedialog.askopenfilename(
