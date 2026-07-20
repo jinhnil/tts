@@ -17,9 +17,11 @@ echo 3. Dang đóng gói piper_desktop_app.py thanh DocTruyenAI.exe...
 py -m PyInstaller --noconsole --onefile --icon=app_icon.ico piper_desktop_app.py --name "DocTruyenAI"
 
 echo.
-echo 4. Dang copy cac file model, icon va piper.exe sang thư muc dist...
+echo 4. Dang copy cac file model, icon, library va piper.exe sang thư muc dist...
 if not exist "dist\piper" mkdir "dist\piper"
+if not exist "dist\library" mkdir "dist\library"
 xcopy /E /I /Y "piper" "dist\piper"
+if exist "library" xcopy /E /I /Y "library" "dist\library"
 copy /Y "*.onnx" "dist\"
 copy /Y "*.json" "dist\"
 copy /Y "app_icon.ico" "dist\"

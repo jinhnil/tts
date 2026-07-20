@@ -111,12 +111,21 @@ class MultiEngineDesktopReader:
         self.sentences_per_chunk_var = tk.IntVar(value=5)
         self.status_var = tk.StringVar(value="Sẵn sàng")
 
+        # Persistent Story Library Directory
+        self.library_dir = os.path.join(self.base_dir, "library")
+        if not os.path.exists(self.library_dir):
+            try:
+                os.makedirs(self.library_dir, exist_ok=True)
+            except Exception as e:
+                print("Error creating library dir:", e)
+
         # Thread Safety & Process tracking
         self.current_process = None
         self.audio_lock = threading.Lock()
         self.play_thread_id = 0
 
         self.setup_ui()
+        self.update_story_combo(auto_load_first=True)
 
     def scan_onnx_models(self):
         search_dirs = [
@@ -361,33 +370,40 @@ class MultiEngineDesktopReader:
         )
         btn_save_settings.pack(side=tk.LEFT, padx=(8, 2))
 
-        # Row 2: Font Size, Chunking, Files & Export Buttons
+        # Row 2: Story Library Selector, Import, Export, Font Size & Chunking
         s_row2 = tk.Frame(settings_frame, bg=self.card_bg)
         s_row2.pack(side=tk.TOP, fill=tk.X, pady=2)
 
-        tk.Label(s_row2, text="🔤 Cỡ chữ:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(2, 2))
-        font_spin = ttk.Spinbox(
+        tk.Label(s_row2, text="📚 Thư Viện:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(2, 3))
+        self.story_var = tk.StringVar()
+        self.story_combo = ttk.Combobox(
             s_row2,
-            from_=9,
-            to=24,
-            textvariable=self.font_size_var,
-            width=3
+            textvariable=self.story_var,
+            state="readonly",
+            width=22
         )
-        font_spin.pack(side=tk.LEFT, padx=2)
+        self.story_combo.pack(side=tk.LEFT, padx=2)
+        self.story_combo.bind("<<ComboboxSelected>>", self.on_story_selected)
 
-        tk.Label(s_row2, text="📝 Câu/đoạn:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(8, 2))
-        chunk_spin = ttk.Spinbox(
+        btn_delete_lib = tk.Button(
             s_row2,
-            from_=1,
-            to=50,
-            textvariable=self.sentences_per_chunk_var,
-            width=3
+            text="❌ Xóa TV",
+            font=("Segoe UI", 8, "bold"),
+            bg="#ef4444",
+            fg="white",
+            activebackground="#dc2626",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=5,
+            pady=2,
+            cursor="hand2",
+            command=self.delete_from_library
         )
-        chunk_spin.pack(side=tk.LEFT, padx=2)
+        btn_delete_lib.pack(side=tk.LEFT, padx=2)
 
         btn_open = tk.Button(
             s_row2,
-            text="📂 Mở Truyện (.txt)",
+            text="📂 Thêm (.txt)",
             font=("Segoe UI", 9, "bold"),
             bg="#0284c7",
             fg="white",
@@ -399,7 +415,7 @@ class MultiEngineDesktopReader:
             cursor="hand2",
             command=self.open_txt_file
         )
-        btn_open.pack(side=tk.LEFT, padx=(10, 3))
+        btn_open.pack(side=tk.LEFT, padx=(6, 2))
 
         btn_export = tk.Button(
             s_row2,
@@ -415,23 +431,27 @@ class MultiEngineDesktopReader:
             cursor="hand2",
             command=self.export_audio_file
         )
-        btn_export.pack(side=tk.LEFT, padx=3)
+        btn_export.pack(side=tk.LEFT, padx=2)
 
-        btn_clear = tk.Button(
+        tk.Label(s_row2, text="🔤 Cỡ chữ:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(6, 2))
+        font_spin = ttk.Spinbox(
             s_row2,
-            text="🗑️ Xóa",
-            font=("Segoe UI", 9),
-            bg="#475569",
-            fg="white",
-            activebackground="#334155",
-            activeforeground="white",
-            relief=tk.FLAT,
-            padx=8,
-            pady=2,
-            cursor="hand2",
-            command=self.clear_text
+            from_=9,
+            to=24,
+            textvariable=self.font_size_var,
+            width=3
         )
-        btn_clear.pack(side=tk.LEFT, padx=3)
+        font_spin.pack(side=tk.LEFT, padx=2)
+
+        tk.Label(s_row2, text="📝 Câu/đoạn:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(6, 2))
+        chunk_spin = ttk.Spinbox(
+            s_row2,
+            from_=1,
+            to=50,
+            textvariable=self.sentences_per_chunk_var,
+            width=3
+        )
+        chunk_spin.pack(side=tk.LEFT, padx=2)
 
         self.para_count_label = tk.Label(
             s_row2,
@@ -536,6 +556,60 @@ class MultiEngineDesktopReader:
         except Exception as e:
             messagebox.showerror("Lỗi", f"Không thể lưu cài đặt: {e}")
 
+    def scan_library_files(self):
+        if not os.path.exists(self.library_dir):
+            return []
+        files = [f for f in os.listdir(self.library_dir) if f.lower().endswith(".txt")]
+        files.sort()
+        return files
+
+    def update_story_combo(self, select_name=None, auto_load_first=False):
+        stories = self.scan_library_files()
+        if hasattr(self, 'story_combo'):
+            self.story_combo["values"] = stories
+            if select_name and select_name in stories:
+                self.story_combo.set(select_name)
+            elif stories:
+                if not self.story_var.get() or self.story_var.get() not in stories:
+                    self.story_combo.current(0)
+                if auto_load_first:
+                    self.on_story_selected()
+            else:
+                self.story_combo.set("")
+
+    def on_story_selected(self, event=None):
+        selected_file = self.story_combo.get()
+        if not selected_file:
+            return
+        target_path = os.path.join(self.library_dir, selected_file)
+        if os.path.exists(target_path):
+            try:
+                with open(target_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.stop_audio()
+                self.text_display.config(state=tk.NORMAL)
+                self.text_display.delete("1.0", tk.END)
+                self.text_display.insert("1.0", content)
+                self.load_paragraphs_from_text()
+                self.status_var.set(f"📚 Đã tải từ thư viện: {selected_file}")
+            except Exception as e:
+                messagebox.showerror("Lỗi", f"Không thể đọc truyện từ thư viện: {e}")
+
+    def delete_from_library(self):
+        selected_file = self.story_combo.get()
+        if not selected_file:
+            messagebox.showinfo("Thông báo", "Chưa chọn truyện nào trong thư viện!")
+            return
+        if messagebox.askyesno("Xác nhận xóa", f"Bạn có chắc muốn xóa truyện '{selected_file}' khỏi thư viện?"):
+            target_path = os.path.join(self.library_dir, selected_file)
+            if os.path.exists(target_path):
+                try:
+                    os.remove(target_path)
+                except Exception as e:
+                    print("Error deleting file:", e)
+            self.update_story_combo()
+            self.status_var.set(f"🗑️ Đã xóa '{selected_file}' khỏi thư viện")
+
     def open_txt_file(self):
         filename = filedialog.askopenfilename(
             title="Chọn file truyện (.txt)",
@@ -545,11 +619,21 @@ class MultiEngineDesktopReader:
             try:
                 with open(filename, "r", encoding="utf-8") as f:
                     content = f.read()
+
+                # Automatically save copy to library folder for permanent persistence
+                base_name = os.path.basename(filename)
+                lib_dest = os.path.join(self.library_dir, base_name)
+                with open(lib_dest, "w", encoding="utf-8") as f:
+                    f.write(content)
+
                 self.stop_audio()
+                self.text_display.config(state=tk.NORMAL)
                 self.text_display.delete("1.0", tk.END)
                 self.text_display.insert("1.0", content)
                 self.load_paragraphs_from_text()
-                self.status_var.set(f"📂 Đã mở file: {os.path.basename(filename)}")
+
+                self.update_story_combo(select_name=base_name)
+                self.status_var.set(f"📂 Đã nạp & lưu vào thư viện: {base_name}")
             except Exception as e:
                 messagebox.showerror("Lỗi", f"Không thể đọc file: {e}")
 
