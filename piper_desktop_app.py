@@ -123,31 +123,70 @@ class MultiEngineDesktopReader:
         return model_dict
 
     def setup_ui(self):
-        # Configure Colors & Theme
-        self.bg_dark = "#0f172a"
-        self.fg_light = "#f8fafc"
+        # Configure Premium Dark Color Palette
+        self.bg_dark = "#090d16"
+        self.card_bg = "#131b2e"
         self.accent_blue = "#38bdf8"
-        self.card_bg = "#1e293b"
+        self.accent_cyan = "#06b6d4"
+        self.accent_green = "#10b981"
+        self.accent_amber = "#f59e0b"
+        self.accent_rose = "#ef4444"
+        self.fg_light = "#f8fafc"
+        self.fg_muted = "#94a3b8"
 
-        # Top Header Bar
-        header = tk.Frame(self.root, bg=self.bg_dark, padx=12, pady=12)
-        header.pack(fill=tk.X)
+        self.root.configure(bg=self.bg_dark)
+
+        # Style TTK Widgets
+        style = ttk.Style()
+        style.theme_use("clam")
+
+        # Configure Combobox Style
+        style.configure("TCombobox", fieldbackground="#1e293b", background="#334155", foreground="#f8fafc", darkcolor="#1e293b", lightcolor="#334155")
+        style.map("TCombobox", fieldbackground=[("readonly", "#1e293b")], foreground=[("readonly", "#f8fafc")])
+
+        # Top Header Card Bar
+        header = tk.Frame(self.root, bg="#0d1527", padx=16, pady=12, highlightthickness=1, highlightbackground="#1e293b")
+        header.pack(fill=tk.X, padx=10, pady=(10, 5))
+
+        title_box = tk.Frame(header, bg="#0d1527")
+        title_box.pack(side=tk.LEFT)
 
         title = tk.Label(
-            header,
-            text="🎧 Đọc Truyện Multi-Engine (Sherpa-ONNX, Kokoro-82M, Edge Neural & Piper)",
-            font=("Segoe UI", 12, "bold"),
-            bg=self.bg_dark,
+            title_box,
+            text="🎧 PIPER AUDIOBOOK READER",
+            font=("Segoe UI", 13, "bold"),
+            bg="#0d1527",
             fg=self.accent_blue
         )
-        title.pack(side=tk.LEFT)
+        title.pack(anchor="w")
 
-        # Settings Bar
-        settings_frame = tk.Frame(self.root, bg=self.card_bg, padx=8, pady=8)
-        settings_frame.pack(fill=tk.X)
+        subtitle = tk.Label(
+            title_box,
+            text="Ứng dụng đọc truyện Tiếng Việt đa giọng đọc & xử lý Offline",
+            font=("Segoe UI", 9),
+            bg="#0d1527",
+            fg=self.fg_muted
+        )
+        subtitle.pack(anchor="w")
+
+        # Engine Badge
+        badge = tk.Label(
+            header,
+            text="🟢 Engine Sẵn Sàng",
+            font=("Segoe UI", 9, "bold"),
+            bg="#064e3b",
+            fg="#6ee7b7",
+            padx=10,
+            pady=4
+        )
+        badge.pack(side=tk.RIGHT)
+
+        # Settings Card Bar
+        settings_frame = tk.Frame(self.root, bg=self.card_bg, padx=12, pady=10, highlightthickness=1, highlightbackground="#1e293b")
+        settings_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Voice Selector Dropdown
-        tk.Label(settings_frame, text="Giọng Đọc:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(5, 2))
+        tk.Label(settings_frame, text="🎙️ Giọng Đọc:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(5, 4))
         
         self.voice_map = {
             "🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện)": "edge_hoaimy",
@@ -168,7 +207,7 @@ class MultiEngineDesktopReader:
             textvariable=self.voice_var,
             values=voice_list,
             state="readonly",
-            width=50
+            width=46
         )
         if voice_list:
             self.voice_combo.current(0)
@@ -176,23 +215,23 @@ class MultiEngineDesktopReader:
         self.voice_combo.bind("<<ComboboxSelected>>", self.on_voice_changed)
 
         # Speed Slider
-        tk.Label(settings_frame, text="Tốc độ:", font=("Segoe UI", 9), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(15, 2))
+        tk.Label(settings_frame, text="⚡ Tốc độ:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(15, 2))
         self.speed_scale = ttk.Scale(
             settings_frame,
             from_=0.5,
             to=2.0,
             variable=self.speed_var,
             orient=tk.HORIZONTAL,
-            length=90,
+            length=95,
             command=self.on_setting_changed
         )
         self.speed_scale.pack(side=tk.LEFT, padx=2)
 
         self.speed_lbl = tk.Label(settings_frame, text="1.0x", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.accent_blue)
-        self.speed_lbl.pack(side=tk.LEFT, padx=(0, 10))
+        self.speed_lbl.pack(side=tk.LEFT, padx=(2, 10))
 
-        # Font Size
-        tk.Label(settings_frame, text="Cỡ chữ:", font=("Segoe UI", 9), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(5, 2))
+        # Font Size Spinbox
+        tk.Label(settings_frame, text="🔤 Cỡ chữ:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#94a3b8").pack(side=tk.LEFT, padx=(5, 2))
         font_spin = ttk.Spinbox(
             settings_frame,
             from_=9,
@@ -204,8 +243,8 @@ class MultiEngineDesktopReader:
         font_spin.pack(side=tk.LEFT, padx=2)
 
         # Toolbar Frame
-        toolbar = tk.Frame(self.root, bg="#334155", padx=6, pady=6)
-        toolbar.pack(fill=tk.X)
+        toolbar = tk.Frame(self.root, bg="#1e293b", padx=10, pady=8, highlightthickness=1, highlightbackground="#334155")
+        toolbar.pack(fill=tk.X, padx=10, pady=2)
 
         btn_open = tk.Button(
             toolbar,
@@ -213,9 +252,12 @@ class MultiEngineDesktopReader:
             font=("Segoe UI", 9, "bold"),
             bg="#2563eb",
             fg="white",
+            activebackground="#1d4ed8",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=10,
-            pady=3,
+            padx=12,
+            pady=4,
+            cursor="hand2",
             command=self.open_txt_file
         )
         btn_open.pack(side=tk.LEFT, padx=5)
@@ -224,37 +266,58 @@ class MultiEngineDesktopReader:
             toolbar,
             text="🗑️ Xóa hết",
             font=("Segoe UI", 9),
-            bg="#64748b",
+            bg="#475569",
             fg="white",
+            activebackground="#334155",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=8,
-            pady=3,
+            padx=10,
+            pady=4,
+            cursor="hand2",
             command=self.clear_text
         )
         btn_clear.pack(side=tk.LEFT, padx=5)
 
+        btn_export = tk.Button(
+            toolbar,
+            text="💾 Xuất File MP3 / WAV",
+            font=("Segoe UI", 9, "bold"),
+            bg="#8b5cf6",
+            fg="white",
+            activebackground="#7c3aed",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=12,
+            pady=4,
+            cursor="hand2",
+            command=self.export_audio_file
+        )
+        btn_export.pack(side=tk.LEFT, padx=5)
+
         self.para_count_label = tk.Label(
             toolbar,
-            text="0 đoạn | Đoạn hiện tại: 0/0",
-            font=("Segoe UI", 9),
-            bg="#334155",
-            fg="#cbd5e1"
+            text="📖 0 đoạn | Đoạn hiện tại: 0/0",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1e293b",
+            fg="#38bdf8"
         )
         self.para_count_label.pack(side=tk.RIGHT, padx=10)
 
-        # Main Reader Text Display
-        main_frame = tk.Frame(self.root, bg="#020617")
+        # Main Reader Text Display Container
+        main_frame = tk.Frame(self.root, bg="#050811", highlightthickness=1, highlightbackground="#1e293b")
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         self.text_display = tk.Text(
             main_frame,
             wrap=tk.WORD,
             font=("Segoe UI", self.font_size_var.get()),
-            bg="#020617",
+            bg="#050811",
             fg="#e2e8f0",
             insertbackground="white",
-            padx=15,
-            pady=15,
+            selectbackground="#2563eb",
+            selectforeground="white",
+            padx=18,
+            pady=18,
             undo=True
         )
         self.text_display.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
@@ -281,19 +344,36 @@ class MultiEngineDesktopReader:
         self.text_display.insert("1.0", sample_text)
         self.load_paragraphs_from_text()
 
+        # Progress Bar Frame
+        prog_frame = tk.Frame(self.root, bg=self.card_bg, padx=12, pady=4)
+        prog_frame.pack(fill=tk.X, padx=10, pady=2)
+
+        self.progress_var = tk.DoubleVar(value=0)
+        self.progress_bar = ttk.Progressbar(
+            prog_frame,
+            orient=tk.HORIZONTAL,
+            variable=self.progress_var,
+            maximum=100,
+            mode="determinate"
+        )
+        self.progress_bar.pack(fill=tk.X, expand=True)
+
         # Bottom Player Navigation Control Bar
-        player_bar = tk.Frame(self.root, bg=self.card_bg, padx=10, pady=10)
-        player_bar.pack(fill=tk.X)
+        player_bar = tk.Frame(self.root, bg=self.card_bg, padx=12, pady=10, highlightthickness=1, highlightbackground="#1e293b")
+        player_bar.pack(fill=tk.X, padx=10, pady=(2, 8))
 
         self.btn_prev = tk.Button(
             player_bar,
             text="⏮ Đoạn Trước",
             font=("Segoe UI", 9, "bold"),
-            bg="#334155",
-            fg="white",
+            bg="#1e293b",
+            fg="#38bdf8",
+            activebackground="#334155",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=10,
-            pady=5,
+            padx=12,
+            pady=6,
+            cursor="hand2",
             command=self.prev_paragraph
         )
         self.btn_prev.pack(side=tk.LEFT, padx=4)
@@ -302,14 +382,17 @@ class MultiEngineDesktopReader:
             player_bar,
             text="▶️ PHÁT (PLAY)",
             font=("Segoe UI", 11, "bold"),
-            bg="#0284c7",
+            bg="#10b981",
             fg="white",
+            activebackground="#059669",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=20,
-            pady=5,
+            padx=24,
+            pady=6,
+            cursor="hand2",
             command=self.toggle_play_pause
         )
-        self.btn_play.pack(side=tk.LEFT, padx=6)
+        self.btn_play.pack(side=tk.LEFT, padx=8)
 
         self.btn_stop = tk.Button(
             player_bar,
@@ -317,9 +400,12 @@ class MultiEngineDesktopReader:
             font=("Segoe UI", 9, "bold"),
             bg="#ef4444",
             fg="white",
+            activebackground="#dc2626",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=10,
-            pady=5,
+            padx=12,
+            pady=6,
+            cursor="hand2",
             command=self.stop_audio
         )
         self.btn_stop.pack(side=tk.LEFT, padx=4)
@@ -328,27 +414,30 @@ class MultiEngineDesktopReader:
             player_bar,
             text="Đoạn Tiếp ⏭",
             font=("Segoe UI", 9, "bold"),
-            bg="#334155",
-            fg="white",
+            bg="#1e293b",
+            fg="#38bdf8",
+            activebackground="#334155",
+            activeforeground="white",
             relief=tk.FLAT,
-            padx=10,
-            pady=5,
+            padx=12,
+            pady=6,
+            cursor="hand2",
             command=self.next_paragraph
         )
         self.btn_next.pack(side=tk.LEFT, padx=4)
 
         # Status Footer
-        footer = tk.Frame(self.root, bg="#020617", height=24)
+        footer = tk.Frame(self.root, bg="#050811", height=26)
         footer.pack(fill=tk.X, side=tk.BOTTOM)
 
         self.status_label = tk.Label(
             footer,
             textvariable=self.status_var,
-            font=("Segoe UI", 9),
-            bg="#020617",
-            fg="#38bdf8"
+            font=("Segoe UI", 9, "bold"),
+            bg="#050811",
+            fg=self.accent_blue
         )
-        self.status_label.pack(side=tk.LEFT, padx=10)
+        self.status_label.pack(side=tk.LEFT, padx=12)
 
     def update_font_size(self):
         sz = self.font_size_var.get()
@@ -403,7 +492,10 @@ class MultiEngineDesktopReader:
     def update_para_counter(self):
         total = len(self.paragraphs)
         curr = (self.current_para_index + 1) if total > 0 else 0
-        self.para_count_label.config(text=f"Tổng {total} đoạn | Đang đọc: {curr}/{total}")
+        pct = (curr / total * 100) if total > 0 else 0
+        if hasattr(self, 'progress_var'):
+            self.progress_var.set(pct)
+        self.para_count_label.config(text=f"📖 Tổng {total} đoạn | Đang đọc: {curr}/{total} ({pct:.0f}%)")
 
     def highlight_paragraph(self, index):
         self.text_display.tag_remove("active_para", "1.0", tk.END)
@@ -590,6 +682,61 @@ class MultiEngineDesktopReader:
             print(f"Error in paragraph worker: {err_msg}")
             self.root.after(0, lambda msg=err_msg: self.status_var.set(f"❌ Lỗi: {msg[:50]}"))
             self._cleanup_file(temp_audio)
+
+    def export_audio_file(self):
+        text_content = self.text_display.get("1.0", tk.END).strip()
+        if not text_content:
+            messagebox.showwarning("Cảnh báo", "Không có văn bản để xuất file âm thanh!")
+            return
+
+        save_path = filedialog.asksaveasfilename(
+            title="Lưu file âm thanh",
+            defaultextension=".mp3",
+            filetypes=[("MP3 Audio (*.mp3)", "*.mp3"), ("WAV Audio (*.wav)", "*.wav")]
+        )
+        if not save_path:
+            return
+
+        self.status_var.set("⏳ Đang tạo file âm thanh...")
+        selected_display = self.voice_combo.get()
+        voice_target = self.voice_map.get(selected_display, "edge_hoaimy")
+
+        def worker():
+            try:
+                rate = self.speed_var.get()
+                if voice_target in ["edge_hoaimy", "edge_namminh"] and HAS_EDGE_TTS:
+                    edge_voice = "vi-VN-NamMinhNeural" if voice_target == "edge_namminh" else "vi-VN-HoaiMyNeural"
+                    rate_pct = int((rate - 1.0) * 100)
+                    rate_str = f"+{rate_pct}%" if rate_pct >= 0 else f"{rate_pct}%"
+
+                    async def run_edge():
+                        comm = edge_tts.Communicate(text_content, edge_voice, rate=rate_str)
+                        await comm.save(save_path)
+
+                    asyncio.run(run_edge())
+                else:
+                    model_file = voice_target if os.path.exists(voice_target) else self.model_path
+                    length_scale = 1.0 / max(0.5, min(2.0, rate))
+                    proc = subprocess.Popen(
+                        [self.piper_exe, "--model", model_file, "--output_file", save_path, "--length_scale", str(length_scale)],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        encoding="utf-8"
+                    )
+                    proc.communicate(input=text_content)
+
+                if os.path.exists(save_path) and os.path.getsize(save_path) > 0:
+                    self.root.after(0, lambda: self.status_var.set(f"✅ Đã xuất file: {os.path.basename(save_path)}"))
+                    self.root.after(0, lambda: messagebox.showinfo("Thành công", f"Đã xuất thành công file âm thanh:\n{save_path}"))
+                else:
+                    self.root.after(0, lambda: self.status_var.set("❌ Lỗi xuất file âm thanh"))
+            except Exception as e:
+                err_msg = str(e)
+                self.root.after(0, lambda msg=err_msg: messagebox.showerror("Lỗi", f"Lỗi tạo file âm thanh: {msg}"))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _cleanup_file(self, filepath):
         try:
