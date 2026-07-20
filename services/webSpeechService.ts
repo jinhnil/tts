@@ -132,10 +132,19 @@ export const speakWebSpeech = (
 
     if (selectedVoice) {
       utterance.voice = selectedVoice;
-      utterance.lang = selectedVoice.lang || "vi-VN";
-    } else {
-      utterance.lang = "vi-VN";
     }
+
+    // Ensure utterance.lang is never 'undefined' or empty string
+    let langTag = selectedVoice?.lang;
+    if (
+      !langTag ||
+      langTag === "undefined" ||
+      langTag.trim() === "" ||
+      (selectedVoice && isVietnameseVoice(selectedVoice))
+    ) {
+      langTag = "vi-VN";
+    }
+    utterance.lang = langTag;
 
     utterance.rate = rate;
     utterance.pitch = pitch;
