@@ -110,6 +110,10 @@ class MultiEngineDesktopReader:
         self.sentences_per_chunk_var = tk.IntVar(value=5)
         self.status_var = tk.StringVar(value="Sẵn sàng")
 
+        # Trace setting variables to auto-apply immediately
+        self.font_size_var.trace_add("write", self.update_font_size)
+        self.sentences_per_chunk_var.trace_add("write", self.on_chunk_setting_changed)
+
         # Thread Safety & Process tracking
         self.current_process = None
         self.audio_lock = threading.Lock()
@@ -329,7 +333,7 @@ class MultiEngineDesktopReader:
         self.speed_scale = ttk.Scale(
             settings_frame,
             from_=0.5,
-            to=2.0,
+            to=5.0,
             variable=self.speed_var,
             orient=tk.HORIZONTAL,
             length=95,
@@ -466,23 +470,27 @@ class MultiEngineDesktopReader:
         self.text_display.insert("1.0", sample_text)
         self.load_paragraphs_from_text()
 
-    def update_font_size(self):
-        sz = self.font_size_var.get()
-        self.text_display.config(font=("Segoe UI", sz))
-        self.text_display.tag_config(
-            "active_para",
-            font=("Segoe UI", sz, "bold")
-        )
+    def update_font_size(self, *args):
+        try:
+            sz = int(self.font_size_var.get())
+            sz = max(8, min(40, sz))
+            self.text_display.config(font=("Segoe UI", sz))
+            if hasattr(self, 'paragraphs'):
+                for idx in range(len(self.paragraphs)):
+                    self.text_display.tag_config(f"body_{idx}", font=("Segoe UI", sz))
+        except Exception:
+            pass
 
     def on_voice_changed(self, event=None):
         if self.is_playing:
             self.play_paragraph(self.current_para_index)
 
     def on_setting_changed(self, val):
-        r = float(val)
-        self.speed_lbl.config(text=f"{r:.1f}x")
-        if self.is_playing:
-            self.play_paragraph(self.current_para_index)
+        try:
+            r = float(val)
+            self.speed_lbl.config(text=f"{r:.1f}x")
+        except Exception:
+            pass
 
     def open_txt_file(self):
         filename = filedialog.askopenfilename(
@@ -607,11 +615,18 @@ class MultiEngineDesktopReader:
         except Exception as e:
             print("Click handler error:", e)
 
-    def on_chunk_setting_changed(self):
-        was_playing = self.is_playing
-        self.load_paragraphs_from_text()
-        if was_playing:
-            self.play_paragraph(self.current_para_index)
+    def on_chunk_setting_changed(self, *args):
+        try:
+            val = self.sentences_per_chunk_var.get()
+            if val < 1:
+                return
+            was_playing = self.is_playing
+            curr_idx = self.current_para_index
+            self.load_paragraphs_from_text()
+            if was_playing and self.paragraphs:
+                self.play_paragraph(min(curr_idx, len(self.paragraphs) - 1))
+        except Exception:
+            pass
 
     def update_para_counter(self):
         total = len(self.paragraphs)
@@ -756,7 +771,7 @@ class MultiEngineDesktopReader:
             if not success:
                 model_file = voice_target if os.path.exists(voice_target) else self.model_path
                 temp_audio = os.path.join(self.base_dir, f"temp_para_{thread_id}.wav")
-                length_scale = 1.0 / max(0.5, min(2.0, rate))
+                length_scale = 1.0 / max(0.2, min(5.0, rate))
 
                 proc = subprocess.Popen(
                     [self.piper_exe, "--model", model_file, "--output_file", temp_audio, "--length_scale", str(length_scale)],
@@ -844,7 +859,7 @@ class MultiEngineDesktopReader:
                     asyncio.run(run_edge())
                 else:
                     model_file = voice_target if os.path.exists(voice_target) else self.model_path
-                    length_scale = 1.0 / max(0.5, min(2.0, rate))
+                    length_scale = 1.0 / max(0.2, min(5.0, rate))
                     proc = subprocess.Popen(
                         [self.piper_exe, "--model", model_file, "--output_file", save_path, "--length_scale", str(length_scale)],
                         stdin=subprocess.PIPE,
