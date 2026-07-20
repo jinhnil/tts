@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import glob
 import subprocess
 import threading
 import asyncio
@@ -28,8 +29,8 @@ class MultiEngineDesktopReader:
     def __init__(self, root):
         self.root = root
         self.root.title("Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine Desktop")
-        self.root.geometry("880x680")
-        self.root.minsize(720, 520)
+        self.root.geometry("920x700")
+        self.root.minsize(750, 550)
 
         # Base path detection
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -39,19 +40,16 @@ class MultiEngineDesktopReader:
         if not os.path.exists(default_piper):
             default_piper = os.path.join(self.base_dir, "piper.exe")
 
-        # Detect Model
-        default_model = os.path.join(self.base_dir, "vi_VN-vais1000-medium.onnx")
+        self.piper_exe = default_piper
+        self.onnx_models = self.scan_onnx_models()
 
         # App Variables
-        self.piper_exe = default_piper
-        self.model_path = default_model
-        
         self.paragraphs = []
         self.current_para_index = 0
         self.is_playing = False
         self.is_paused = False
 
-        self.voice_var = tk.StringVar(value="edge_hoaimy")
+        self.voice_var = tk.StringVar()
         self.speed_var = tk.DoubleVar(value=1.0)
         self.font_size_var = tk.IntVar(value=13)
         self.status_var = tk.StringVar(value="Sẵn sàng")
@@ -62,6 +60,14 @@ class MultiEngineDesktopReader:
         self.play_thread_id = 0
 
         self.setup_ui()
+
+    def scan_onnx_models(self):
+        models = glob.glob(os.path.join(self.base_dir, "*.onnx"))
+        model_dict = {}
+        for m in models:
+            filename = os.path.basename(m)
+            model_dict[filename] = m
+        return model_dict
 
     def setup_ui(self):
         # Configure Colors & Theme
@@ -76,7 +82,7 @@ class MultiEngineDesktopReader:
 
         title = tk.Label(
             header,
-            text="🎧 Đọc Truyện Tiếng Việt Multi-Engine (Edge Neural & Piper AI)",
+            text="🎧 Đọc Truyện Tiếng Việt Multi-Engine (Microsoft Neural & Piper AI Models)",
             font=("Segoe UI", 13, "bold"),
             bg=self.bg_dark,
             fg=self.accent_blue
@@ -90,20 +96,26 @@ class MultiEngineDesktopReader:
         # Voice Selector Dropdown
         tk.Label(settings_frame, text="Giọng Đọc:", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg="#e2e8f0").pack(side=tk.LEFT, padx=(5, 2))
         
-        voices_options = [
-            ("🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện Cực Hay)", "edge_hoaimy"),
-            ("🌟 Microsoft Nam Minh (Neural Nam - Đọc Truyện Trầm Ấm)", "edge_namminh"),
-            ("⚡ Piper AI Offline (Cục bộ - vais1000)", "piper_local"),
-        ]
+        self.voice_map = {
+            "🌟 Microsoft Hoài My (Neural Nữ - Đọc Truyện)": "edge_hoaimy",
+            "🌟 Microsoft Nam Minh (Neural Nam - Trầm Ấm)": "edge_namminh",
+        }
 
+        # Add all detected ONNX models to voice options
+        for name, path in self.onnx_models.items():
+            display_name = f"⚡ Piper AI Model: {name}"
+            self.voice_map[display_name] = path
+
+        voice_list = list(self.voice_map.keys())
         self.voice_combo = ttk.Combobox(
             settings_frame,
             textvariable=self.voice_var,
-            values=[v[0] for v in voices_options],
+            values=voice_list,
             state="readonly",
-            width=45
+            width=50
         )
-        self.voice_combo.current(0)
+        if voice_list:
+            self.voice_combo.current(0)
         self.voice_combo.pack(side=tk.LEFT, padx=5)
         self.voice_combo.bind("<<ComboboxSelected>>", self.on_voice_changed)
 
@@ -206,10 +218,9 @@ class MultiEngineDesktopReader:
         # Initial Sample Text
         sample_text = (
             "Chào mừng bạn đến với Ứng Dụng Đọc Truyện Tiếng Việt Multi-Engine!\n\n"
-            "Bạn có thể chọn giọng Microsoft Hoài My (Nữ), Nam Minh (Nam) đọc truyện cực mượt "
-            "hoặc chuyển sang bộ đọc Piper AI Offline khi không có mạng.\n\n"
-            "Mở bất kỳ file truyện chữ .txt nào để thưởng thức giọng đọc mượt mà, "
-            "không bị lặp hay giật tiếng khi chuyển đoạn."
+            "Ứng dụng tự động tích hợp các mô hình giọng đọc Tiếng Việt như Microsoft Hoài My, "
+            "Nam Minh Neural và các file model Piper AI (ONNX) có sẵn trong thư mục.\n\n"
+            "Bạn có thể mở bất kỳ file truyện chữ .txt nào để đọc mượt mà 100% không cần mạng."
         )
         self.text_display.insert("1.0", sample_text)
         self.load_paragraphs_from_text()
@@ -282,14 +293,6 @@ class MultiEngineDesktopReader:
             fg="#38bdf8"
         )
         self.status_label.pack(side=tk.LEFT, padx=10)
-
-    def get_selected_voice_code(self):
-        val = self.voice_combo.get()
-        if "Hoài My" in val:
-            return "edge_hoaimy"
-        elif "Nam Minh" in val:
-            return "edge_namminh"
-        return "piper_local"
 
     def update_font_size(self):
         sz = self.font_size_var.get()
@@ -367,7 +370,7 @@ class MultiEngineDesktopReader:
         with self.audio_lock:
             self.is_playing = False
             self.is_paused = False
-            self.play_thread_id += 1 # Invalidate previous threads
+            self.play_thread_id += 1
 
             if HAS_PYGAME:
                 try:
@@ -435,16 +438,17 @@ class MultiEngineDesktopReader:
 
         thread_id = self.play_thread_id
         text_content = self.paragraphs[index]
-        voice_code = self.get_selected_voice_code()
+        selected_display = self.voice_combo.get()
+        voice_target = self.voice_map.get(selected_display, "edge_hoaimy")
 
         thread = threading.Thread(
             target=self._synthesize_and_play_worker,
-            args=(text_content, voice_code, thread_id),
+            args=(text_content, voice_target, thread_id),
             daemon=True
         )
         thread.start()
 
-    def _synthesize_and_play_worker(self, text, voice_code, thread_id):
+    def _synthesize_and_play_worker(self, text, voice_target, thread_id):
         if thread_id != self.play_thread_id or not self.is_playing:
             return
 
@@ -453,12 +457,11 @@ class MultiEngineDesktopReader:
         try:
             self.root.after(0, lambda: self.status_var.set(f"⏳ Đang xử lý âm thanh đoạn {self.current_para_index + 1}..."))
             rate = self.speed_var.get()
-
             success = False
 
-            # Option A: Edge Neural Voices (Hoài My & Nam Minh)
-            if voice_code in ["edge_hoaimy", "edge_namminh"] and HAS_EDGE_TTS:
-                edge_voice = "vi-VN-NamMinhNeural" if voice_code == "edge_namminh" else "vi-VN-HoaiMyNeural"
+            # Option A: Edge Neural Voices
+            if voice_target in ["edge_hoaimy", "edge_namminh"] and HAS_EDGE_TTS:
+                edge_voice = "vi-VN-NamMinhNeural" if voice_target == "edge_namminh" else "vi-VN-HoaiMyNeural"
                 rate_pct = int((rate - 1.0) * 100)
                 rate_str = f"+{rate_pct}%" if rate_pct >= 0 else f"{rate_pct}%"
 
@@ -471,14 +474,16 @@ class MultiEngineDesktopReader:
                     if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
                         success = True
                 except Exception as edge_err:
-                    print("Edge TTS synthesis failed, fallback to Piper:", edge_err)
+                    print("Edge TTS synthesis failed:", edge_err)
 
-            # Option B: Piper AI Local Synthesis
+            # Option B: Piper AI Local Model
             if not success:
+                model_file = voice_target if os.path.exists(voice_target) else self.model_path
                 temp_audio = os.path.join(self.base_dir, f"temp_para_{thread_id}.wav")
                 length_scale = 1.0 / max(0.5, min(2.0, rate))
+
                 proc = subprocess.Popen(
-                    [self.piper_exe, "--model", self.model_path, "--output_file", temp_audio, "--length_scale", str(length_scale)],
+                    [self.piper_exe, "--model", model_file, "--output_file", temp_audio, "--length_scale", str(length_scale)],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
