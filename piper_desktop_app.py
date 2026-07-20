@@ -484,8 +484,46 @@ class MultiEngineDesktopReader:
 
     def load_paragraphs_from_text(self):
         raw = self.text_display.get("1.0", tk.END)
-        lines = [line.strip() for line in raw.split("\n") if line.strip()]
-        self.paragraphs = lines if lines else []
+        if not raw.strip():
+            self.paragraphs = []
+            self.current_para_index = 0
+            self.update_para_counter()
+            return
+
+        sentences = []
+        buffer = ""
+        length = len(raw)
+
+        for i in range(length):
+            char = raw[i]
+            buffer += char
+            is_delimiter = False
+
+            if char in ["!", "?", "\n"]:
+                is_delimiter = True
+            elif char == ".":
+                next_char = raw[i + 1] if i < length - 1 else None
+                prev_char = raw[i - 1] if i > 0 else None
+                if next_char != "." and prev_char != ".":
+                    is_delimiter = True
+
+            if is_delimiter:
+                cleaned = buffer.strip()
+                if len(cleaned) >= 3:
+                    sentences.append(cleaned)
+                    buffer = ""
+
+        leftover = buffer.strip()
+        if leftover:
+            if len(leftover) < 3 and len(sentences) > 0:
+                sentences[-1] += " " + leftover
+            else:
+                sentences.append(leftover)
+
+        if not sentences and raw.strip():
+            sentences.append(raw.strip())
+
+        self.paragraphs = sentences
         self.current_para_index = 0
         self.update_para_counter()
 
