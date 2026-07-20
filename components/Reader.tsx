@@ -14,6 +14,7 @@ import {
   resumeWebSpeech,
   getWebSpeechVoices,
   isVietnameseVoice,
+  getCleanVoiceName,
 } from "../services/webSpeechService";
 import {
   ArrowLeft,
@@ -544,7 +545,7 @@ export const Reader: React.FC<ReaderProps> = ({
                     .filter((v) => isVietnameseVoice(v))
                     .map((v) => (
                       <option key={v.voiceURI} value={v.voiceURI}>
-                        {v.name}
+                        {getCleanVoiceName(v)}
                       </option>
                     ))}
                 </optgroup>
@@ -553,7 +554,7 @@ export const Reader: React.FC<ReaderProps> = ({
                     .filter((v) => !isVietnameseVoice(v))
                     .map((v) => (
                       <option key={v.voiceURI} value={v.voiceURI}>
-                        {v.name} ({v.lang})
+                        {getCleanVoiceName(v)}
                       </option>
                     ))}
                 </optgroup>

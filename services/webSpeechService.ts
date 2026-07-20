@@ -2,14 +2,59 @@ export const isVietnameseVoice = (voice: SpeechSynthesisVoice): boolean => {
   if (!voice) return false;
   const lang = (voice.lang || "").toLowerCase();
   const name = (voice.name || "").toLowerCase();
+  const uri = (voice.voiceURI || "").toLowerCase();
   return (
     lang.startsWith("vi") ||
     lang.includes("vi-") ||
     lang.includes("vi_") ||
     name.includes("vietnamese") ||
     name.includes("tiếng việt") ||
-    name.includes("tieng viet")
+    name.includes("tieng viet") ||
+    uri.includes("hoaimy") ||
+    uri.includes("namminh") ||
+    uri.includes("vi-vn")
   );
+};
+
+export const getCleanVoiceName = (voice: SpeechSynthesisVoice): string => {
+  if (!voice) return "";
+  let name = voice.name || "";
+  const lang = voice.lang || "";
+  const uri = voice.voiceURI || "";
+
+  // If name contains 'undefined', try to extract real speaker name from voiceURI or lang
+  if (name.includes("undefined") || !name) {
+    let extractedName = "";
+
+    if (/HoaiMy/i.test(uri) || /HoaiMy/i.test(name)) {
+      extractedName = "Hoài My";
+    } else if (/NamMinh/i.test(uri) || /NamMinh/i.test(name)) {
+      extractedName = "Nam Minh";
+    } else {
+      // Try to extract speaker name from voiceURI (e.g., "Microsoft Ava Online...", "vi-VN-HoaiMyNeural")
+      const uriMatch = uri.match(/([A-Z][a-z0-9]+)(?:Neural|Online|Voice)?/i);
+      if (uriMatch && uriMatch[1] && !["Microsoft", "Speech", "Server", "Text"].includes(uriMatch[1])) {
+        extractedName = uriMatch[1];
+      }
+    }
+
+    if (name.includes("undefined")) {
+      name = name.replace(/Microsoft\s+undefined/i, extractedName ? `Microsoft ${extractedName}` : "Microsoft");
+      name = name.replace(/-\s*undefined$/i, lang ? `(${lang})` : "");
+      name = name.replace(/undefined/g, extractedName || lang || "Voice");
+    } else {
+      name = extractedName ? `${extractedName} (${lang})` : (uri || lang || "Voice");
+    }
+  }
+
+  // Add friendly indicators for popular Vietnamese voices
+  if (/HoaiMy/i.test(uri) || /HoaiMy/i.test(name)) {
+    if (!name.includes("Nữ")) name += " (Nữ)";
+  } else if (/NamMinh/i.test(uri) || /NamMinh/i.test(name)) {
+    if (!name.includes("Nam")) name += " (Nam)";
+  }
+
+  return name;
 };
 
 export const getWebSpeechVoices = (): SpeechSynthesisVoice[] => {
