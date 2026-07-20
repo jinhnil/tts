@@ -523,12 +523,18 @@ export const Reader: React.FC<ReaderProps> = ({
                 </button>
               </div>
 
-              {!hasVietnameseVoice && webSpeechVoices.length > 0 && (
-                <div className="mb-2 p-2 bg-yellow-900/30 border border-yellow-700 rounded text-xs text-yellow-200">
-                  Không tìm thấy giọng Tiếng Việt. Vui lòng kiểm tra gói ngôn
-                  ngữ trong cài đặt thiết bị.
-                </div>
-              )}
+              <div className="mb-3 p-3 bg-blue-950/40 border border-blue-800 rounded-lg text-xs text-blue-200 leading-relaxed space-y-1">
+                <p className="font-semibold text-blue-300">💡 Mẹo phát âm Tiếng Việt trên Windows (Edge/Chrome):</p>
+                <p>
+                  Các giọng Edge <i>Online (Natural)</i> bị chặn phát âm qua Web API.
+                  Để đọc tiếng Việt mượt mà 100%:
+                </p>
+                <ol className="list-decimal ml-4 space-y-0.5 text-gray-300">
+                  <li>Mở <b>Settings Windows (Win + I)</b> → <b>Time & Language</b> → <b>Speech</b>.</li>
+                  <li>Bấm <b>Add voices</b> → Tìm chọn <b>Vietnamese (Tiếng Việt)</b> → <b>Add</b>.</li>
+                  <li>Nhấn nút <b>Tải lại giọng</b> bên trên để sử dụng giọng Hoài My chuẩn.</li>
+                </ol>
+              </div>
 
               <select
                 value={tempSettings.webSpeechVoiceURI}
